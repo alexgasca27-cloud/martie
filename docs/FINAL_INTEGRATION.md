@@ -1,20 +1,22 @@
-# Martie — integración final pendiente
+# Martie — integración
 
-## Ya incluido en V1 integral
-- Landing, menú, categorías, producto, personalización, carrito.
-- Checkout: datos, entrega, fecha/hora, pago, resumen, confirmación.
-- Reglas de pago visibles: terminal/efectivo para recoger; transferencia para envío.
-- Flujo de comprobante y WhatsApp preparado.
-- Historial, seguimiento, Martie Club, login/registro y administración V1.
+## Qué ya está implementado en el paquete
+- Frontend cliente.
+- Carrito real en la interfaz.
+- Checkout.
+- Validación server-side de pedido/precio/opciones.
+- Horarios server-side.
+- Capacidad por horario.
+- Supabase Auth.
+- Admin protegido por `martie_staff`.
+- Productos y categorías persistentes.
+- Opciones por producto.
+- Estados de pedido.
+- Pagos y comprobantes.
+- Martie Club.
+- WhatsApp mediante Edge Functions.
 
-## Para producción con Supabase
-1. Mantener la publishable key en Vercel y nunca subir la secret key.
-2. Activar RLS para tablas públicas y privadas.
-3. Crear Storage privado para comprobantes de transferencia.
-4. Mover la creación de pedidos a una Edge Function.
-5. Calcular fecha/hora disponible en servidor.
-6. Validar precios/opciones desde base de datos antes de guardar el pedido.
-7. Acreditar puntos únicamente después de pago válido y fulfillment.
-8. Validar comprobantes manualmente desde administración.
-9. Conectar WhatsApp Business API mediante Edge Function.
-10. Configurar sucursal mediante `branch_id` desde el primer despliegue.
+## Lo único que no puede venir dentro del ZIP
+Las credenciales de servicios externos. En concreto, Meta exige que el negocio tenga WhatsApp Business Platform/Cloud API y proporcione un Phone Number ID y access token. Esos valores deben vivir como Secrets en Supabase, nunca en React ni GitHub.
+
+Supabase también mantiene las publishable keys para navegador y las secret keys exclusivamente en backend/Edge Functions; las secret keys no deben exponerse en frontend. Ver documentación actual de Supabase.

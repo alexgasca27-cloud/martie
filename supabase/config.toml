@@ -1,0 +1,12 @@
+project_id = "zndchjgwnthihoeciqbel"
+
+[functions.create-order]
+verify_jwt = false
+[functions.available-slots]
+verify_jwt = false
+[functions.send-whatsapp]
+verify_jwt = false
+[functions.send-status-whatsapp]
+verify_jwt = false
+[functions.admin-update-order]
+verify_jwt = false
