@@ -243,3 +243,12 @@ button:focus-visible { outline: 3px solid var(--coffee); outline-offset: 3px; }
   .moment-character { width: 290px; height: 290px; right: 40px; bottom: -10px; }
   .brand-signature { padding-bottom: 70px; }
 }
+
+.doodle.d3 {
+  left: 8px;
+  bottom: 42px;
+  font-size: 12px;
+  transform: rotate(-8deg);
+  max-width: 100px;
+  line-height: 1.2;
+}
