@@ -36,3 +36,7 @@ Lee `docs/PRODUCTION_SETUP.md` para el procedimiento exacto.
 
 ### WhatsApp de confirmación interna
 La confirmación de cada pedido se envía al número configurado en `martie_settings.whatsapp_number`. El valor inicial es `9993596815` y el administrador puede editarlo desde **Configuración → WhatsApp**. El teléfono del cliente se conserva como dato del pedido y no se usa como destinatario de la notificación interna.
+
+
+## V31
+Admin en /admin con login propio. AdminRoute es la única puerta de acceso.

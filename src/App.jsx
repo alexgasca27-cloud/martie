@@ -136,13 +136,34 @@ function Checkout({checkout,update,cart,total,slots,today,submit,error,setScreen
 function Confirmation({order,whatsapp,settings,setScreen}){const transfer=order?.paymentStatus==='WAITING_PROOF';return <main className="section confirmation"><div className="confirmIcon">{transfer?'↑':'✓'}</div><span className="kicker">{transfer?'COMPROBANTE REQUERIDO':'PEDIDO RECIBIDO'}</span><h1>{transfer?'Envía tu comprobante.':'¡Listo! Tu pedido está en camino.'}</h1><p className="sub">Pedido <b>{order?.id}</b> · {money(order?.total)}</p>{transfer&&<div className="bankBox"><h3>Datos para transferencia</h3><p><b>Banco:</b> {settings?.bank_name||'Pendiente de configurar'}</p><p><b>Cuenta:</b> {settings?.bank_account||'Pendiente de configurar'}</p><p><b>CLABE:</b> {settings?.bank_clabe||'Pendiente de configurar'}</p><p><b>Titular:</b> {settings?.bank_holder||'Pendiente de configurar'}</p><p><b>Concepto:</b> {order?.id}</p></div>}<a className="waBtn" href={whatsapp} target="_blank" rel="noreferrer">Abrir WhatsApp →</a><button className="outlineBtn wide" onClick={()=>setScreen('tracking')}>Ver seguimiento</button><button className="linkBtn" onClick={()=>setScreen('menu')}>Seguir comprando</button></main>}
 function ProductModal({product,opts,selected,setSelected,qty,setQty,total,add,close}){const choose=(o,v)=>{const names=o.values.map(x=>x[0]);if(o.type==='multi'){const cur=selected[o.id]||[];setSelected({...selected,[o.id]:cur.includes(v)?cur.filter(x=>x!==v):[...cur,v]})}else setSelected({...selected,[o.id]:[v]})};return <div className="overlay" onClick={close}><section className="detail" onClick={e=>e.stopPropagation()}><button className="close" onClick={close}>×</button><img className="detailImg" src={product.img} alt=""/><div className="detailTitle"><div><h2>Personaliza tu {product.name}</h2><p>{product.desc}</p></div><strong>{money(total)}</strong></div>{opts.map(o=><div className="option" key={o.id}><h4>{o.name}{o.required&&<small className="required"> · obligatorio</small>}</h4><div>{o.values.map(v=><button key={v[0]} className={(selected[o.id]||[]).includes(v[0])?'selected':''} onClick={()=>choose(o,v[0])}>{v[0]}{v[1]?` + ${money(v[1])}`:''}</button>)}</div></div>)}<div className="qty"><button onClick={()=>setQty(Math.max(1,qty-1))}>−</button><b>{qty}</b><button onClick={()=>setQty(qty+1)}>+</button></div><button className="add" onClick={add}>Agregar al carrito <i>|</i> {money(total*qty)}</button></section></div>}
 export function AdminRoute(){
- const [products,setProducts]=useState(FALLBACK);
- const [orders,setOrders]=useState([]);
- const [adminTab,setAdminTab]=useState('dashboard');
- return <Admin products={products} setProducts={setProducts} orders={orders} adminTab={adminTab} setAdminTab={setAdminTab}/>;
+ const [user,setUser]=useState(null),[checking,setChecking]=useState(true),[allowed,setAllowed]=useState(false),[msg,setMsg]=useState('');
+ const [email,setEmail]=useState(''),[password,setPassword]=useState('');
+ const [products,setProducts]=useState(FALLBACK),[orders,setOrders]=useState([]),[adminTab,setAdminTab]=useState('dashboard');
+ useEffect(()=>{
+  if(!supabaseReady){setChecking(false);setMsg('Configura las variables de Supabase para entrar al administrador.');return;}
+  let active=true;
+  supabase.auth.getSession().then(async ({data})=>{
+   if(!active)return;
+   const u=data.session?.user||null; setUser(u);
+   if(u){const {data:staff}=await supabase.from('martie_staff').select('role,is_active').eq('user_id',u.id).maybeSingle(); if(active){setAllowed(staff?.role==='admin'&&staff?.is_active!==false); if(!(staff?.role==='admin'&&staff?.is_active!==false))setMsg('Esta cuenta no tiene permisos de administrador.');}}
+   setChecking(false);
+  });
+  const {data}=supabase.auth.onAuthStateChange(async (_e,s)=>{
+   const u=s?.user||null; setUser(u);
+   if(!u){setAllowed(false);setChecking(false);return;}
+   const {data:staff}=await supabase.from('martie_staff').select('role,is_active').eq('user_id',u.id).maybeSingle();
+   if(active){setAllowed(staff?.role==='admin'&&staff?.is_active!==false);setMsg(staff?.role==='admin'&&staff?.is_active!==false?'':'Esta cuenta no tiene permisos de administrador.');setChecking(false);}
+  });
+  return()=>{active=false;data.subscription.unsubscribe()};
+ },[]);
+ const loginAdmin=async()=>{setMsg('');if(!email.trim()||!password)return setMsg('Ingresa correo y contraseña.');setChecking(true);const {data,error}=await supabase.auth.signInWithPassword({email:email.trim(),password});if(error){setChecking(false);return setMsg(error.message)}const u=data.user;if(u){const {data:staff,error:se}=await supabase.from('martie_staff').select('role,is_active').eq('user_id',u.id).maybeSingle();if(se||staff?.role!=='admin'||staff?.is_active===false){await supabase.auth.signOut();setChecking(false);return setMsg('Esta cuenta no tiene permisos de administrador.')}setAllowed(true);setUser(u)}setChecking(false)};
+ const logout=async()=>{await supabase.auth.signOut();setAllowed(false);setUser(null);setPassword('')};
+ if(checking)return <main className="section admin"><span className="kicker">MARTIE</span><h1>Administración</h1><p className="hint">Verificando acceso…</p></main>;
+ if(!user||!allowed)return <main className="section admin adminLogin"><div className="adminLoginCard"><img src="/branding/martie-logo.png" alt="Martie"/><span className="kicker">MARTIE · ADMIN</span><h1>Administración</h1><p>Inicia sesión con la cuenta administrativa para continuar.</p><input type="email" placeholder="Correo administrativo" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&loginAdmin()}/><input type="password" placeholder="Contraseña" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==='Enter'&&loginAdmin()}/>{msg&&<div className="formError">{msg}</div>}<button className="dark full" onClick={loginAdmin}>Entrar al administrador →</button><button className="outlineBtn wide" onClick={()=>window.location.href='/'}>← Volver a Martie</button></div></main>;
+ return <Admin products={products} setProducts={setProducts} orders={orders} adminTab={adminTab} setAdminTab={setAdminTab} onLogout={logout}/>;
 }
 
-function Admin({products,setProducts,orders,adminTab,setAdminTab}){
+function Admin({products,setProducts,orders,adminTab,setAdminTab,onLogout}){
  const [ready,setReady]=useState(false),[rows,setRows]=useState([]),[cats,setCats]=useState([]),[zones,setZones]=useState([]),[settings,setSettings]=useState(null),[msg,setMsg]=useState('');
  const [editing,setEditing]=useState(null),[form,setForm]=useState({name:'',description:'',base_price:'',category_id:'',image_url:'',sort_order:0,is_featured:false,is_new:false,is_bestseller:false});
  const [catForm,setCatForm]=useState({name:'',sort_order:0}),[editingCat,setEditingCat]=useState(null);
@@ -151,7 +172,7 @@ function Admin({products,setProducts,orders,adminTab,setAdminTab}){
  async function load(){
   setMsg('');
   const {data:u}=await supabase.auth.getUser();
-  if(!u?.user){setMsg('Debes iniciar sesión con la cuenta administrativa.');return}
+  if(!u?.user){setMsg('Sesión administrativa no disponible. Vuelve a iniciar sesión en /admin.');return}
   const {data:staff}=await supabase.from('martie_staff').select('role,is_active').eq('user_id',u.user.id).maybeSingle();
   if(staff?.role!=='admin'||!staff?.is_active){setMsg('Tu cuenta no tiene permisos de administrador.');return}
   const [{data:o},{data:c},{data:p},{data:s},{data:z}]=await Promise.all([
@@ -183,7 +204,7 @@ function Admin({products,setProducts,orders,adminTab,setAdminTab}){
  const saveSettings=async()=>{if(!settings)return;const payload={store_name:settings.store_name||'Martie',opening_time:settings.opening_time,closing_time:settings.closing_time,prep_minutes:Number(settings.prep_minutes),slot_interval:Number(settings.slot_interval),capacity_per_slot:Number(settings.capacity_per_slot),whatsapp_number:settings.whatsapp_number,bank_name:settings.bank_name,bank_account:settings.bank_account,bank_clabe:settings.bank_clabe,bank_holder:settings.bank_holder,pickup_address:settings.pickup_address,updated_at:new Date().toISOString()};const {error}=await supabase.from('martie_settings').update(payload).eq('id',true);setMsg(error?'Error: '+error.message:'Configuración guardada correctamente.');if(!error)load()};
  if(!ready)return <main className="section admin"><span className="kicker">MARTIE</span><h1>Administración</h1><div className="formError">{msg||'Verificando permisos…'}</div></main>;
  return <main className="section admin">
-  <div className="adminHead"><div><span className="kicker">MARTIE</span><h1>Administración</h1></div><div className="adminHeadActions"><button className="outlineBtn" onClick={()=>{window.location.href='/'}}>← Volver a Martie</button><span className="adminBadge">ADMIN</span></div></div>
+  <div className="adminHead"><div><span className="kicker">MARTIE</span><h1>Administración</h1></div><div className="adminHeadActions"><button className="outlineBtn" onClick={()=>{window.location.href='/'}}>← Volver a Martie</button><button className="outlineBtn" onClick={onLogout}>Cerrar sesión</button><span className="adminBadge">ADMIN</span></div></div>
   {msg&&<div className="formError">{msg}</div>}
   <div className="adminTabs">{['dashboard','products','categories','options','zones','orders','settings'].map(x=><button className={adminTab===x?'active':''} onClick={()=>setAdminTab(x)} key={x}>{x==='dashboard'?'Resumen':x==='products'?'Productos':x==='categories'?'Categorías':x==='options'?'Opciones':x==='zones'?'Envíos':x==='orders'?'Pedidos':'Configuración'}</button>)}</div>
   {adminTab==='dashboard'&&<div className="adminStats"><Stat n={rows.length} t="Pedidos"/><Stat n={money(rows.reduce((a,x)=>a+Number(x.total),0))} t="Ventas"/><Stat n={products.length} t="Productos"/><Stat n={rows.filter(x=>x.payment_status==='WAITING_PROOF').length} t="Transferencias pendientes"/></div>}
