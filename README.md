@@ -32,3 +32,7 @@ Esta versión deja la aplicación y el backend listos para trabajar juntos:
 7. Haz push a `main` y Vercel desplegará el frontend.
 
 Lee `docs/PRODUCTION_SETUP.md` para el procedimiento exacto.
+
+
+### Horarios
+La app consulta `available-slots` para obtener horarios reales y, si la función no está desplegada o falla, muestra un cálculo local de respaldo. El servidor de `create-order` sigue validando el horario antes de crear el pedido.
