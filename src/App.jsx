@@ -85,14 +85,29 @@ export default function App(){
  }
  const shown=cat==="Todos"?products:products.filter(p=>p.cat===cat);
  const cartCount=cart.reduce((a,x)=>a+x.qty,0),cartTotal=cart.reduce((a,x)=>a+x.qty*x.price,0);
- const extra={"Shot extra":12,Vainilla:8,Caramelo:8,Canela:8};
- const sizeDelta={Chico:0,Mediano:6,Grande:12};
- const dynamicOptions=product?optionMap[product.id]:null;
- const dynamicDelta=dynamicOptions?dynamicOptions.reduce((sum,o)=>sum+(o.values||[]).filter(v=>extras.includes(v.name)).reduce((a,v)=>a+v.delta,0),0):0;
- const detailTotal=product?product.price+(dynamicOptions?dynamicDelta:(sizeDelta[size]||0)+extras.reduce((a,x)=>a+extra[x],0)):0;
- const open=p=>{setProduct(p);setSize("Chico");setMilk("Entera");setExtras([]);setQty(1)};
- const menu=c=>{setCat(c);setScreen("menu");window.scrollTo(0,0)};
- const add=()=>{if(!product)return;const dynamic=optionMap[product.id]?.length;const detail=dynamic?extras.join(" · "):`${size} · ${milk}`;setCart(c=>[...c,{id:Date.now(),name:product.name,price:detailTotal,qty,detail,img:product.img}]);setProduct(null)};
+ const demoConfigs={
+  "Café":[
+    {id:"size",name:"Tamaño",type:"single",values:[{id:"s1",name:"Chico",delta:0},{id:"s2",name:"Mediano",delta:6},{id:"s3",name:"Grande",delta:12}]},
+    {id:"milk",name:"Tipo de leche",type:"single",values:[{id:"m1",name:"Entera",delta:0},{id:"m2",name:"Deslactosada",delta:0},{id:"m3",name:"Almendra",delta:0},{id:"m4",name:"Avena",delta:0}]},
+    {id:"extras",name:"Extras",type:"multi",max:4,values:[{id:"e1",name:"Shot extra",delta:12},{id:"e2",name:"Vainilla",delta:8},{id:"e3",name:"Caramelo",delta:8},{id:"e4",name:"Canela",delta:8}]}
+  ],
+  "Matcha":[
+    {id:"size",name:"Tamaño",type:"single",values:[{id:"s1",name:"Chico",delta:0},{id:"s2",name:"Mediano",delta:6},{id:"s3",name:"Grande",delta:12}]},
+    {id:"milk",name:"Tipo de leche",type:"single",values:[{id:"m1",name:"Entera",delta:0},{id:"m2",name:"Deslactosada",delta:0},{id:"m3",name:"Almendra",delta:0},{id:"m4",name:"Avena",delta:0}]},
+    {id:"sweet",name:"Endulzante",type:"single",values:[{id:"w1",name:"Sin azúcar",delta:0},{id:"w2",name:"Miel",delta:5},{id:"w3",name:"Stevia",delta:0}]}
+  ],
+  "Bebidas frías":[
+    {id:"size",name:"Tamaño",type:"single",values:[{id:"s1",name:"Chico",delta:0},{id:"s2",name:"Mediano",delta:6},{id:"s3",name:"Grande",delta:12}]},
+    {id:"extras",name:"Extras",type:"multi",max:3,values:[{id:"e1",name:"Vainilla",delta:8},{id:"e2",name:"Caramelo",delta:8},{id:"e3",name:"Shot extra",delta:12}]}
+  ],
+  "Postres":[{id:"filling",name:"Relleno",type:"single",values:[{id:"f1",name:"Natural",delta:0},{id:"f2",name:"Chocolate",delta:8},{id:"f3",name:"Almendra",delta:10}]}],
+  "Comida":[{id:"extras",name:"Extras",type:"multi",max:3,values:[{id:"e1",name:"Aguacate",delta:12},{id:"e2",name:"Queso extra",delta:10}]}]
+ };
+ const fallbackOptions=product?(product.name==="Latte"||product.name==="Iced Latte"?demoConfigs[product.cat==="Bebidas frías"?"Bebidas frías":"Café"]:product.name==="Matcha Latte"?demoConfigs["Matcha"]:demoConfigs[product.cat]||[]):[];
+ const dynamicOptions=product?(optionMap[product.id]?.length?optionMap[product.id]:fallbackOptions):[];
+ const dynamicDelta=dynamicOptions.reduce((sum,o)=>sum+(o.values||[]).filter(v=>extras.includes(v.name)).reduce((x,v)=>x+v.delta,0),0);
+ const detailTotal=product?product.price+dynamicDelta:0;
+ const add=()=>{if(!product)return;const detail=extras.length?extras.join(" · "):"Sin personalización adicional";setCart(c=>[...c,{id:Date.now(),name:product.name,price:detailTotal,qty,detail,img:product.img}]);setProduct(null)};
  const toggle=e=>setExtras(x=>x.includes(e)?x.filter(v=>v!==e):[...x,e]);
 
  return <div className="app">
@@ -116,13 +131,7 @@ export default function App(){
     <button className="close" onClick={()=>setProduct(null)}>×</button>
     <img className="detailImg" src={product.img} alt=""/>
     <div className="detailTitle"><div><h2>Personaliza tu {product.name}</h2><p>{product.desc}</p></div><strong>{money(detailTotal)}</strong></div>
-    {(optionMap[product.id]?.length ? optionMap[product.id] : null)?.map(o=>
-      <DynamicOption key={o.id} option={o} selected={extras} setSelected={setExtras}/>
-    ) || <>
-      <Options title="Tamaño" values={["Chico","Mediano","Grande"]} selected={size} set={setSize} deltas={sizeDelta}/>
-      <Options title="Tipo de leche" values={["Entera","Deslactosada","Almendra","Avena"]} selected={milk} set={setMilk}/>
-      <div className="extras"><h4>Extras</h4>{Object.entries(extra).map(([e,v])=><label key={e}><input type="checkbox" checked={extras.includes(e)} onChange={()=>toggle(e)}/>{e}<span>+ {money(v)}</span></label>)}</div>
-    </>}
+    {dynamicOptions.map(o=><DynamicOption key={o.id} option={o} selected={extras} setSelected={setExtras}/>)}
     <div className="qty"><button onClick={()=>setQty(Math.max(1,qty-1))}>−</button><b>{qty}</b><button onClick={()=>setQty(qty+1)}>+</button></div>
     <button className="add" onClick={add}>Agregar al carrito <i>|</i> {money(detailTotal*qty)}</button>
    </section>
@@ -146,16 +155,13 @@ function Mini({p,open,large}){return <article className={large?"card large":"min
 function DynamicOption({option,selected,setSelected}){
  const multi=option.type.includes("multi")||option.type.includes("checkbox");
  const choose=v=>{
+  const names=(option.values||[]).map(x=>x.name);
   if(multi){
-   const exists=selected.includes(v.name);
-   if(exists){setSelected(selected.filter(x=>x!==v.name));return}
-   if(option.max>0){
-    const current=selected.filter(x=>(option.values||[]).some(z=>z.name===x));
-    if(current.length>=option.max)return;
-   }
+   if(selected.includes(v.name)){setSelected(selected.filter(x=>x!==v.name));return}
+   const current=selected.filter(x=>names.includes(x));
+   if(option.max>0&&current.length>=option.max)return;
    setSelected([...selected,v.name]);
   }else{
-   const names=(option.values||[]).map(x=>x.name);
    setSelected([...selected.filter(x=>!names.includes(x)),v.name]);
   }
  };

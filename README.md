@@ -1,7 +1,8 @@
-# Martie V13 — Personalización configurable
-- Mantiene la landing de referencia.
-- Cada producto puede leer grupos de opciones desde `product_options`.
-- Los valores se leen desde `product_option_values`.
-- Soporta selección única y múltiple, obligatoriedad, máximo de selecciones y ajuste de precio.
-- Si las tablas aún no tienen opciones configuradas, usa el fallback demo para no romper la experiencia.
-- No requiere secretos en frontend.
+# Martie V14 — Personalización por producto
+Cada producto tiene una configuración de demo distinta mientras se terminan de poblar las opciones de Supabase:
+- Latte: tamaño, leche y extras.
+- Iced Latte: tamaño y extras.
+- Matcha Latte: tamaño, leche y endulzante.
+- Croissant: relleno.
+- Comida: extras propios.
+El precio se recalcula en tiempo real y las opciones de Supabase tienen prioridad cuando existan.
