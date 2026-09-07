@@ -145,7 +145,7 @@ export function AdminRoute(){
   supabase.auth.getSession().then(async ({data})=>{
    if(!active)return;
    const u=data.session?.user||null; setUser(u);
-   if(u){const {data:staff}=await supabase.from('martie_staff').select('role,is_active').eq('user_id',u.id).maybeSingle(); if(active){setAllowed(staff?.role==='admin'&&staff?.is_active!==false); if(!(staff?.role==='admin'&&staff?.is_active!==false))setMsg('Esta cuenta no tiene permisos de administrador.');}}
+   if(u){const {data:isAdmin}=await supabase.rpc('martie_is_admin'); if(active){setAllowed(isAdmin===true); if(isAdmin!==true)setMsg('Esta cuenta no tiene permisos de administrador.');}}
    setChecking(false);
   });
   const {data}=supabase.auth.onAuthStateChange(async (_e,s)=>{
@@ -156,7 +156,7 @@ export function AdminRoute(){
   });
   return()=>{active=false;data.subscription.unsubscribe()};
  },[]);
- const loginAdmin=async()=>{setMsg('');if(!email.trim()||!password)return setMsg('Ingresa correo y contraseña.');setChecking(true);const {data,error}=await supabase.auth.signInWithPassword({email:email.trim(),password});if(error){setChecking(false);return setMsg(error.message)}const u=data.user;if(u){const {data:staff,error:se}=await supabase.from('martie_staff').select('role,is_active').eq('user_id',u.id).maybeSingle();if(se||staff?.role!=='admin'||staff?.is_active===false){await supabase.auth.signOut();setChecking(false);return setMsg('Esta cuenta no tiene permisos de administrador.')}setAllowed(true);setUser(u)}setChecking(false)};
+ const loginAdmin=async()=>{setMsg('');if(!email.trim()||!password)return setMsg('Ingresa correo y contraseña.');setChecking(true);const {data,error}=await supabase.auth.signInWithPassword({email:email.trim(),password});if(error){setChecking(false);return setMsg(error.message)}const u=data.user;if(u){const {data:isAdmin,error:ae}=await supabase.rpc('martie_is_admin');if(ae||isAdmin!==true){await supabase.auth.signOut();setChecking(false);return setMsg('Esta cuenta no tiene permisos de administrador.')}setAllowed(true);setUser(u)}setChecking(false)};
  const logout=async()=>{await supabase.auth.signOut();setAllowed(false);setUser(null);setPassword('')};
  if(checking)return <main className="section admin"><span className="kicker">MARTIE</span><h1>Administración</h1><p className="hint">Verificando acceso…</p></main>;
  if(!user||!allowed)return <main className="section admin adminLogin"><div className="adminLoginCard"><img src="/branding/martie-logo.png" alt="Martie"/><span className="kicker">MARTIE · ADMIN</span><h1>Administración</h1><p>Inicia sesión con la cuenta administrativa para continuar.</p><input type="email" placeholder="Correo administrativo" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&loginAdmin()}/><input type="password" placeholder="Contraseña" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==='Enter'&&loginAdmin()}/>{msg&&<div className="formError">{msg}</div>}<button className="dark full" onClick={loginAdmin}>Entrar al administrador →</button><button className="outlineBtn wide" onClick={()=>window.location.href='/'}>← Volver a Martie</button></div></main>;
