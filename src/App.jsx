@@ -1,403 +1,76 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { supabase } from "./lib/supabase";
+import React,{useState} from "react";
 
-const demoCategories = [
-  { id: "all", name: "Todo" },
-  { id: "coffee", name: "Café" },
-  { id: "cold", name: "Fríos" },
-  { id: "food", name: "Comida" },
-  { id: "sweet", name: "Dulce" }
+const CATS=["Todos","Café","Bebidas frías","Comida","Postres"];
+const PRODUCTS=[
+{id:1,name:"Latte",desc:"Espresso + leche cremosa.",price:49,cat:"Café",img:"/images/latte.jpg"},
+{id:2,name:"Iced Latte",desc:"Café frío, mismo gran sabor.",price:55,cat:"Bebidas frías",img:"/images/iced-latte.jpg"},
+{id:3,name:"Matcha Latte",desc:"Energía natural.",price:59,cat:"Café",img:"/images/matcha.jpg"},
+{id:4,name:"Croissant",desc:"Hojaldre perfecto.",price:45,cat:"Postres",img:"/images/croissant.jpg"},
+{id:5,name:"Bowl de Frutas",desc:"Frescura en cada bocado.",price:69,cat:"Comida",img:"/images/bowl.jpg"},
+{id:6,name:"Smoothie Fresa",desc:"Natural y delicioso.",price:55,cat:"Bebidas frías",img:"/images/smoothie.jpg"}
 ];
+const money=n=>new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN"}).format(n);
 
-const demoProducts = [
-  {
-    id: "demo-1",
-    name: "Latte Martie",
-    description: "Espresso suave, leche cremosa y ese toque especial de Martie.",
-    price: 68,
-    category: "coffee",
-    emoji: "☕",
-    featured: true
-  },
-  {
-    id: "demo-2",
-    name: "Matcha Latte",
-    description: "Matcha cremoso y equilibrado, servido frío o caliente.",
-    price: 74,
-    category: "coffee",
-    emoji: "🍵",
-    featured: true
-  },
-  {
-    id: "demo-3",
-    name: "Cold Brew",
-    description: "Café de extracción lenta, fresco y con carácter.",
-    price: 65,
-    category: "cold",
-    emoji: "🧊",
-    featured: true
-  },
-  {
-    id: "demo-4",
-    name: "Croissant",
-    description: "Hojaldre dorado, ligero y recién horneado.",
-    price: 49,
-    category: "sweet",
-    emoji: "🥐",
-    featured: false
-  },
-  {
-    id: "demo-5",
-    name: "Toast Martie",
-    description: "Pan artesanal con ingredientes frescos y mucho sabor.",
-    price: 89,
-    category: "food",
-    emoji: "🍞",
-    featured: false
-  },
-  {
-    id: "demo-6",
-    name: "Iced Caramel",
-    description: "Espresso, leche, hielo y caramelo.",
-    price: 76,
-    category: "cold",
-    emoji: "🥤",
-    featured: false
-  }
-];
+export default function App(){
+ const [screen,setScreen]=useState("home"),[cat,setCat]=useState("Todos"),[product,setProduct]=useState(null),[cart,setCart]=useState([]);
+ const [size,setSize]=useState("Chico"),[milk,setMilk]=useState("Entera"),[extras,setExtras]=useState([]),[qty,setQty]=useState(1);
+ const extra={ "Shot extra":12,Vainilla:8,Caramelo:8,Canela:8 };
+ const shown=cat==="Todos"?PRODUCTS:PRODUCTS.filter(p=>p.cat===cat);
+ const cartCount=cart.reduce((a,x)=>a+x.qty,0),cartTotal=cart.reduce((a,x)=>a+x.qty*x.price,0);
+ const detailTotal=product?product.price+extras.reduce((a,x)=>a+extra[x],0):0;
+ const open=p=>{setProduct(p);setSize("Chico");setMilk("Entera");setExtras([]);setQty(1)};
+ const menu=c=>{setCat(c);setScreen("menu");window.scrollTo(0,0)};
+ const add=()=>{if(!product)return;setCart(c=>[...c,{id:Date.now(),name:product.name,price:detailTotal,qty,detail:`${size} · ${milk}`,img:product.img}]);setProduct(null)};
+ const toggle=e=>setExtras(x=>x.includes(e)?x.filter(v=>v!==e):[...x,e]);
 
-function money(value) {
-  return new Intl.NumberFormat("es-MX", {
-    style: "currency",
-    currency: "MXN"
-  }).format(value);
+ return <div className="app">
+  <header className="topbar">
+   <button className="logoBtn" onClick={()=>setScreen("home")}><img src="/branding/martie-logo.png" alt="Martie"/></button>
+   <button className="clubTop" onClick={()=>setScreen("club")}>✦ Martie Club</button>
+  </header>
+
+  {screen==="home"&&<Home menu={menu} open={open}/>}
+  {screen==="menu"&&<Menu cat={cat} setCat={setCat} shown={shown} open={open}/>}
+  {screen==="club"&&<Club/>}
+  {screen==="orders"&&<Orders/>}
+
+  {cartCount>0&&<button className="cartBar" onClick={()=>setScreen("orders")}><span>🛒</span><b>{cartCount}</b><strong>{money(cartTotal)}</strong></button>}
+
+  <nav className="bottom">
+   <Nav label="Inicio" icon="⌂" active={screen==="home"} onClick={()=>setScreen("home")}/>
+   <Nav label="Menú" icon="☕" active={screen==="menu"} onClick={()=>menu("Todos")}/>
+   <Nav label="Pedidos" icon="▣" active={screen==="orders"} onClick={()=>setScreen("orders")}/>
+   <Nav label="Perfil" icon="○" active={screen==="club"} onClick={()=>setScreen("club")}/>
+  </nav>
+
+  {product&&<div className="overlay" onClick={()=>setProduct(null)}>
+   <section className="detail" onClick={e=>e.stopPropagation()}>
+    <button className="close" onClick={()=>setProduct(null)}>×</button>
+    <img className="detailImg" src={product.img} alt=""/>
+    <div className="detailTitle"><div><h2>{product.name}</h2><p>{product.desc}</p></div><strong>{money(product.price)}</strong></div>
+    <Options title="Tamaño" values={["Chico","Mediano","Grande"]} selected={size} set={setSize}/>
+    <Options title="Tipo de leche" values={["Entera","Deslactosada","Almendra","Avena"]} selected={milk} set={setMilk}/>
+    <div className="extras"><h4>Extras</h4>{Object.entries(extra).map(([e,v])=><label key={e}><input type="checkbox" checked={extras.includes(e)} onChange={()=>toggle(e)}/>{e}<span>+ {money(v)}</span></label>)}</div>
+    <div className="qty"><button onClick={()=>setQty(Math.max(1,qty-1))}>−</button><b>{qty}</b><button onClick={()=>setQty(qty+1)}>+</button></div>
+    <button className="add">Agregar al carrito <i>|</i> {money(detailTotal*qty)}</button>
+   </section>
+  </div>}
+ </div>
 }
 
-function App() {
-  const [activeTab, setActiveTab] = useState("home");
-  const [activeCategory, setActiveCategory] = useState("all");
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState(demoCategories);
-  const [cart, setCart] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("martie_cart");
-    if (saved) {
-      try { setCart(JSON.parse(saved)); } catch {}
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("martie_cart", JSON.stringify(cart));
-  }, [cart]);
-
-  useEffect(() => {
-    async function load() {
-      if (!supabase) {
-        setProducts(demoProducts);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const { data: cats } = await supabase
-          .from("categories")
-          .select("*");
-
-        const { data: prods } = await supabase
-          .from("products")
-          .select("*");
-
-        if (cats?.length) {
-          setCategories([
-            { id: "all", name: "Todo" },
-            ...cats.map(c => ({ id: c.id, name: c.name }))
-          ]);
-        }
-
-        if (prods?.length) {
-          setProducts(prods.map(p => ({
-            ...p,
-            price: Number(p.base_price ?? p.price ?? 0),
-            category: p.category_id ?? p.category ?? "",
-            emoji: "☕"
-          })));
-        } else {
-          setProducts(demoProducts);
-        }
-      } catch {
-        setProducts(demoProducts);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    load();
-  }, []);
-
-  const filteredProducts = useMemo(() => {
-    if (activeCategory === "all") return products;
-    return products.filter(p => String(p.category) === String(activeCategory));
-  }, [products, activeCategory]);
-
-  const featured = products.filter(p => p.featured || p.is_featured).slice(0, 3);
-  const visibleFeatured = featured.length ? featured : products.slice(0, 3);
-
-  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-  function addToCart(product) {
-    setCart(prev => {
-      const found = prev.find(item => item.id === product.id);
-      if (found) {
-        return prev.map(item =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...prev, {
-        id: product.id,
-        name: product.name,
-        price: product.price,
-        quantity: 1,
-        emoji: product.emoji || "☕"
-      }];
-    });
-    setSelectedProduct(null);
-  }
-
-  function changeQuantity(id, amount) {
-    setCart(prev =>
-      prev
-        .map(item =>
-          item.id === id
-            ? { ...item, quantity: item.quantity + amount }
-            : item
-        )
-        .filter(item => item.quantity > 0)
-    );
-  }
-
-  function goMenu(category = "all") {
-    setActiveCategory(category);
-    setActiveTab("menu");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  return (
-    <div className="app-shell">
-      <header className="topbar">
-        <button className="brand" onClick={() => setActiveTab("home")} aria-label="Ir al inicio">
-          <img className="brand-logo" src="/branding/martie-logo-transparent.png" alt="Martie — Momentos que saben mejor" />
-        </button>
-
-        <button className="club-pill" onClick={() => setActiveTab("profile")}>
-          <span>✦</span> Martie Club
-        </button>
-      </header>
-
-      <main>
-        {activeTab === "home" && (
-          <>
-            <section className="hero">
-              <div className="hero-copy">
-                <span className="eyebrow">BUENOS DÍAS, BUENOS MOMENTOS</span>
-                <h1>Tu café,<br /><em>a tu manera.</em></h1>
-                <p>Un espacio para bajar el ritmo, pedir algo rico y disfrutar el momento.</p>
-                <button className="primary-btn" onClick={() => goMenu()}>
-                  Ver menú <span>→</span>
-                </button>
-              </div>
-              <div className="hero-art" aria-hidden="true">
-                <div className="sun"></div>
-                <img className="hero-character" src="/branding/martie-character.png" alt="" />
-                <span className="doodle d1">mmm...</span>
-                <span className="doodle d2">♡</span>
-                <span className="doodle d3">café para mejores días</span>
-              </div>
-            </section>
-
-            <section className="section">
-              <div className="section-head">
-                <div>
-                  <span className="eyebrow">PARA HOY</span>
-                  <h2>Lo que se antoja</h2>
-                </div>
-                <button className="text-btn" onClick={() => goMenu()}>Ver todo →</button>
-              </div>
-
-              <div className="category-row">
-                {categories.filter(c => c.id !== "all").slice(0, 4).map(cat => (
-                  <button key={cat.id} className="category-chip" onClick={() => goMenu(cat.id)}>
-                    {cat.name}
-                  </button>
-                ))}
-              </div>
-
-              {loading ? (
-                <div className="loading">Preparando el menú…</div>
-              ) : (
-                <div className="product-grid">
-                  {visibleFeatured.map(product => (
-                    <ProductCard key={product.id} product={product} onClick={() => setSelectedProduct(product)} />
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="moment-banner">
-              <div className="moment-copy">
-                <span className="eyebrow">MOMENTOS MARTIE</span>
-                <h2>Pequeños momentos,<br /><em>grandes días.</em></h2>
-                <p>Un café rico, una pausa y un poquito de tiempo para ti.</p>
-              </div>
-              <img src="/branding/martie-character.png" alt="" className="moment-character" />
-            </section>
-
-            <section className="club-banner">
-              <div>
-                <span className="eyebrow">MARTIE CLUB</span>
-                <h2>Cada café cuenta.</h2>
-                <p>Acumula puntos en tus compras y descubre beneficios especiales.</p>
-              </div>
-              <button className="secondary-btn" onClick={() => setActiveTab("profile")}>Conocer Club</button>
-            </section>
-
-            <div className="brand-signature">
-              <img src="/branding/martie-logo-transparent.png" alt="Martie" />
-              <span>Momentos que saben mejor</span>
-            </div>
-          </>
-        )}
-
-        {activeTab === "menu" && (
-          <section className="section menu-page">
-            <div className="page-title">
-              <span className="eyebrow">MARTIE</span>
-              <h1>Menú</h1>
-              <p>Elige tus favoritos y personalízalos a tu gusto.</p>
-            </div>
-
-            <div className="category-row menu-categories">
-              {categories.map(cat => (
-                <button
-                  key={cat.id}
-                  className={`category-chip ${activeCategory === cat.id ? "active" : ""}`}
-                  onClick={() => setActiveCategory(cat.id)}
-                >
-                  {cat.name}
-                </button>
-              ))}
-            </div>
-
-            {loading ? (
-              <div className="loading">Cargando menú…</div>
-            ) : (
-              <div className="product-grid">
-                {filteredProducts.map(product => (
-                  <ProductCard key={product.id} product={product} onClick={() => setSelectedProduct(product)} />
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
-        {activeTab === "orders" && (
-          <section className="section empty-page">
-            <div className="empty-icon">☕</div>
-            <span className="eyebrow">MIS PEDIDOS</span>
-            <h1>Aquí aparecerán tus pedidos</h1>
-            <p>Cuando hagas tu primer pedido podrás consultar su estado y volver a pedirlo fácilmente.</p>
-            <button className="primary-btn" onClick={() => goMenu()}>Hacer un pedido</button>
-          </section>
-        )}
-
-        {activeTab === "profile" && (
-          <section className="section profile-page">
-            <div className="page-title">
-              <span className="eyebrow">MARTIE CLUB</span>
-              <h1>Tu momento, tus puntos.</h1>
-              <p>Inicia sesión para consultar tus pedidos, puntos y beneficios.</p>
-            </div>
-            <div className="club-card">
-              <div className="club-star">✦</div>
-              <div>
-                <span>ACUMULA PUNTOS</span>
-                <strong>10 puntos</strong>
-                <small>por cada $100 MXN de compra</small>
-              </div>
-            </div>
-            <button className="primary-btn full" onClick={() => alert("El acceso a Martie Club se conectará con Supabase Auth en el siguiente módulo.")}>
-              Iniciar sesión
-            </button>
-          </section>
-        )}
-      </main>
-
-      {cartCount > 0 && (
-        <button className="cart-float" onClick={() => alert("El carrito completo se habilitará en el siguiente módulo.")}>
-          <span>🛒</span>
-          <strong>{cartCount}</strong>
-          <b>{money(cartTotal)}</b>
-        </button>
-      )}
-
-      <nav className="bottom-nav">
-        <NavItem icon="⌂" label="Inicio" active={activeTab === "home"} onClick={() => setActiveTab("home")} />
-        <NavItem icon="☕" label="Menú" active={activeTab === "menu"} onClick={() => goMenu()} />
-        <NavItem icon="▣" label="Pedidos" active={activeTab === "orders"} onClick={() => setActiveTab("orders")} />
-        <NavItem icon="○" label="Perfil" active={activeTab === "profile"} onClick={() => setActiveTab("profile")} />
-      </nav>
-
-      {selectedProduct && (
-        <div className="modal-backdrop" onClick={() => setSelectedProduct(null)}>
-          <div className="product-modal" onClick={e => e.stopPropagation()}>
-            <button className="close-btn" onClick={() => setSelectedProduct(null)}>×</button>
-            <div className="modal-product-art">{selectedProduct.emoji || "☕"}</div>
-            <span className="eyebrow">MARTIE</span>
-            <h2>{selectedProduct.name}</h2>
-            <p>{selectedProduct.description}</p>
-            <div className="modal-bottom">
-              <strong>{money(selectedProduct.price)}</strong>
-              <button className="primary-btn" onClick={() => addToCart(selectedProduct)}>Agregar</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function NavItem({ icon, label, active, onClick }) {
-  return (
-    <button className={`nav-item ${active ? "active" : ""}`} onClick={onClick}>
-      <span>{icon}</span>
-      <small>{label}</small>
-    </button>
-  );
-}
-
-function ProductCard({ product, onClick }) {
-  const unavailable = product.is_available === false || product.available === false;
-  return (
-    <article className={`product-card ${unavailable ? "unavailable" : ""}`} onClick={!unavailable ? onClick : undefined}>
-      <div className="product-art">
-        <span>{product.emoji || "☕"}</span>
-        {product.is_new && <i>NUEVO</i>}
-        {unavailable && <div className="soldout">Agotado</div>}
-      </div>
-      <div className="product-info">
-        <div>
-          <h3>{product.name}</h3>
-          <p>{product.description || "Una opción deliciosa de Martie."}</p>
-        </div>
-        <strong>{money(product.price)}</strong>
-      </div>
-    </article>
-  );
-}
-
-export default App;
+function Home({menu,open}){return <main>
+ <section className="hero">
+  <div className="heroText"><span className="kicker">BUENOS DÍAS,</span><h1>Tu café,<br/><em>a tu manera.</em></h1><p>Un espacio para bajar el ritmo, pedir algo rico y disfrutar el momento.</p><button className="dark" onClick={()=>menu("Todos")}>Ver menú <b>→</b></button></div>
+  <div className="heroArt"><div className="blob"></div><img className="heroPhoto" src="/images/hero-latte.jpg" alt="Latte Martie"/><img className="character" src="/branding/martie-character.png" alt=""/></div><span className="scribble">mmm...</span><span className="heroHeart">♡</span>
+ </section>
+ <section className="section"><div className="heading"><div><span className="kicker">PARA HOY</span><h2>Lo que se antoja</h2></div><button onClick={()=>menu("Todos")}>Ver todo →</button></div><div className="chips">{["Café","Bebidas","Comida","Postres"].map(x=><button key={x} onClick={()=>menu(x==="Bebidas"?"Bebidas frías":x)}>{x}</button>)}</div><div className="miniGrid">{PRODUCTS.slice(0,3).map(p=><Mini key={p.id} p={p} open={open}/>)}</div></section>
+ <section className="moment section"><div><span className="kicker">MOMENTOS MARTIE</span><h2>Pequeños<br/><em>momentos,</em><br/>grandes días.</h2></div><img src="/branding/martie-character.png" alt=""/></section>
+ <section className="club section"><div><span className="kicker">MARTIE CLUB</span><h2>Más café,<br/>más momentos.</h2><button className="soft" onClick={()=>document.querySelector(".clubTop")?.click()}>Conocer beneficios →</button></div><img src="/branding/martie-character.png" alt=""/></section>
+ <footer><img src="/branding/martie-logo.png" alt="Martie"/><p>Momentos que saben mejor ♡</p></footer>
+ </main>}
+function Menu({cat,setCat,shown,open}){return <main className="section page"><span className="kicker">MARTIE</span><h1>Nuestro menú</h1><p className="sub">Café, bebidas y más para cada momento.</p><div className="chips">{CATS.map(c=><button className={cat===c?"active":""} key={c} onClick={()=>setCat(c)}>{c}</button>)}</div><div className="grid">{shown.map(p=><Mini key={p.id} p={p} open={open} large/>)}</div><div className="inlineClub"><div><h2>Martie Club</h2><p>Más café, más momentos.</p><button className="soft">Conocer beneficios →</button></div><img src="/branding/martie-character.png" alt=""/></div></main>}
+function Club(){return <main className="section profile"><img className="profileLogo" src="/branding/martie-logo.png" alt="Martie"/><div className="promo pink"><h1>Martie Club</h1><p>Más café, más momentos.</p><button className="soft">Conocer beneficios →</button></div><div className="promo green"><h2>Pequeños<br/><em>momentos,</em><br/>grandes días.</h2><img src="/branding/martie-character.png" alt=""/></div><div className="list">{[["♧","Recompensas","Acumula puntos y gana bebidas."],["☆","Promociones","Acceso a ofertas especiales."],["♡","Tus favoritos","Guarda lo que más te gusta."],["☕","Historial de pedidos","Revive tus momentos Martie."]].map(x=><button key={x[1]}><span>{x[0]}</span><div><b>{x[1]}</b><small>{x[2]}</small></div><strong>›</strong></button>)}</div><div className="profilePhoto"><img src="/images/club-latte.jpg" alt=""/><span>Momentos que<br/><em>saben mejor</em> ♡</span></div></main>}
+function Orders(){return <main className="section empty"><div>☕</div><span className="kicker">MIS PEDIDOS</span><h1>Momentos que vuelven.</h1><p>Aquí aparecerán tus pedidos y su seguimiento.</p></main>}
+function Mini({p,open,large}){return <article className={large?"card large":"mini"} onClick={()=>open(p)}><img src={p.img} alt=""/><div><div><b>{p.name}</b><small>{p.desc}</small></div><strong>{money(p.price)}</strong></div>{large&&<button>+</button>}</article>}
+function Options({title,values,selected,set}){return <div className="option"><h4>{title}</h4><div>{values.map(v=><button className={selected===v?"selected":""} key={v} onClick={()=>set(v)}>{v}</button>)}</div></div>}
+function Nav({label,icon,active,onClick}){return <button className={active?"nav active":"nav"} onClick={onClick}><span>{icon}</span><small>{label}</small></button>}
