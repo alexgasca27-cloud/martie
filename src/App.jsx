@@ -1,305 +1,399 @@
-import { useEffect, useMemo, useState } from 'react';
-import {
-  ShoppingBag,
-  ChevronRight,
-  Plus,
-  Minus,
-  Coffee,
-  Home,
-  UserRound,
-  RefreshCw
-} from 'lucide-react';
-import { isSupabaseConfigured, supabase } from './lib/supabase';
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "./lib/supabase";
 
-const fallbackProducts = [
-  { id: 'demo-1', name: 'Latte', description: 'Espresso suave con leche cremosa.', base_price: 65, category_name: 'Café', is_available: true },
-  { id: 'demo-2', name: 'Cappuccino', description: 'Espresso, leche y espuma.', base_price: 68, category_name: 'Café', is_available: true },
-  { id: 'demo-3', name: 'Cold Brew', description: 'Café de extracción lenta, frío y refrescante.', base_price: 72, category_name: 'Fríos', is_available: true },
-  { id: 'demo-4', name: 'Matcha Latte', description: 'Matcha suave con leche cremosa.', base_price: 78, category_name: 'Fríos', is_available: true },
-  { id: 'demo-5', name: 'Croissant', description: 'Hojaldrado, mantequilloso y recién horneado.', base_price: 55, category_name: 'Panadería', is_available: true },
-  { id: 'demo-6', name: 'Toast de aguacate', description: 'Pan artesanal, aguacate y semillas.', base_price: 105, category_name: 'Comida', is_available: true }
+const demoCategories = [
+  { id: "all", name: "Todo" },
+  { id: "coffee", name: "Café" },
+  { id: "cold", name: "Fríos" },
+  { id: "food", name: "Comida" },
+  { id: "sweet", name: "Dulce" }
 ];
 
-const fallbackCategories = ['Todo', 'Café', 'Fríos', 'Panadería', 'Comida'];
-
-export default function App() {
-  const [category, setCategory] = useState('Todo');
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState(fallbackCategories);
-  const [cart, setCart] = useState([]);
-  const [view, setView] = useState('home');
-  const [loading, setLoading] = useState(true);
-  const [dbError, setDbError] = useState('');
-
-  async function loadMenu() {
-    setLoading(true);
-    setDbError('');
-
-    if (!isSupabaseConfigured) {
-      setProducts(fallbackProducts);
-      setCategories(fallbackCategories);
-      setLoading(false);
-      return;
-    }
-
-    const { data: categoryData, error: categoryError } = await supabase
-      .from('categories')
-      .select('id,name,display_order')
-      .eq('is_active', true)
-      .order('display_order', { ascending: true });
-
-    const { data: productData, error: productError } = await supabase
-      .from('products')
-      .select('id,name,description,image_url,base_price,category_id,display_order,is_available,is_featured,is_new,is_bestseller')
-      .eq('is_available', true)
-      .order('display_order', { ascending: true });
-
-    if (categoryError || productError) {
-      console.error(categoryError || productError);
-      setProducts(fallbackProducts);
-      setCategories(fallbackCategories);
-      setDbError('No pudimos cargar el menú de la base de datos. Mostramos el menú de demostración.');
-      setLoading(false);
-      return;
-    }
-
-    const categoryMap = new Map((categoryData || []).map(c => [c.id, c.name]));
-    const mappedProducts = (productData || []).map(p => ({
-      ...p,
-      price: Number(p.base_price),
-      category_name: categoryMap.get(p.category_id) || 'Otros'
-    }));
-
-    const dbCategories = ['Todo', ...(categoryData || []).map(c => c.name)];
-    setProducts(mappedProducts);
-    setCategories(dbCategories);
-    setCategory('Todo');
-    setLoading(false);
+const demoProducts = [
+  {
+    id: "demo-1",
+    name: "Latte Martie",
+    description: "Espresso suave, leche cremosa y ese toque especial de Martie.",
+    price: 68,
+    category: "coffee",
+    emoji: "☕",
+    featured: true
+  },
+  {
+    id: "demo-2",
+    name: "Matcha Latte",
+    description: "Matcha cremoso y equilibrado, servido frío o caliente.",
+    price: 74,
+    category: "coffee",
+    emoji: "🍵",
+    featured: true
+  },
+  {
+    id: "demo-3",
+    name: "Cold Brew",
+    description: "Café de extracción lenta, fresco y con carácter.",
+    price: 65,
+    category: "cold",
+    emoji: "🧊",
+    featured: true
+  },
+  {
+    id: "demo-4",
+    name: "Croissant",
+    description: "Hojaldre dorado, ligero y recién horneado.",
+    price: 49,
+    category: "sweet",
+    emoji: "🥐",
+    featured: false
+  },
+  {
+    id: "demo-5",
+    name: "Toast Martie",
+    description: "Pan artesanal con ingredientes frescos y mucho sabor.",
+    price: 89,
+    category: "food",
+    emoji: "🍞",
+    featured: false
+  },
+  {
+    id: "demo-6",
+    name: "Iced Caramel",
+    description: "Espresso, leche, hielo y caramelo.",
+    price: 76,
+    category: "cold",
+    emoji: "🥤",
+    featured: false
   }
+];
+
+function money(value) {
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN"
+  }).format(value);
+}
+
+function App() {
+  const [activeTab, setActiveTab] = useState("home");
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState(demoCategories);
+  const [cart, setCart] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   useEffect(() => {
-    loadMenu();
+    const saved = localStorage.getItem("martie_cart");
+    if (saved) {
+      try { setCart(JSON.parse(saved)); } catch {}
+    }
   }, []);
 
-  const visible = useMemo(
-    () => category === 'Todo'
-      ? products
-      : products.filter(p => p.category_name === category),
-    [category, products]
-  );
+  useEffect(() => {
+    localStorage.setItem("martie_cart", JSON.stringify(cart));
+  }, [cart]);
 
-  const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  useEffect(() => {
+    async function load() {
+      if (!supabase) {
+        setProducts(demoProducts);
+        setLoading(false);
+        return;
+      }
 
-  function add(product) {
-    setCart(current => {
-      const found = current.find(i => i.id === product.id);
+      try {
+        const { data: cats } = await supabase
+          .from("categories")
+          .select("*")
+          .order("sort_order", { ascending: true });
+
+        const { data: prods } = await supabase
+          .from("products")
+          .select("*")
+          .order("sort_order", { ascending: true });
+
+        if (cats?.length) {
+          setCategories([
+            { id: "all", name: "Todo" },
+            ...cats.map(c => ({ id: c.id, name: c.name }))
+          ]);
+        }
+
+        if (prods?.length) {
+          setProducts(prods.map(p => ({
+            ...p,
+            price: Number(p.base_price ?? p.price ?? 0),
+            category: p.category_id ?? p.category ?? "",
+            emoji: "☕"
+          })));
+        } else {
+          setProducts(demoProducts);
+        }
+      } catch {
+        setProducts(demoProducts);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    load();
+  }, []);
+
+  const filteredProducts = useMemo(() => {
+    if (activeCategory === "all") return products;
+    return products.filter(p => String(p.category) === String(activeCategory));
+  }, [products, activeCategory]);
+
+  const featured = products.filter(p => p.featured || p.is_featured).slice(0, 3);
+  const visibleFeatured = featured.length ? featured : products.slice(0, 3);
+
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  function addToCart(product) {
+    setCart(prev => {
+      const found = prev.find(item => item.id === product.id);
       if (found) {
-        return current.map(i =>
-          i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i
+        return prev.map(item =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
         );
       }
-      return [...current, { ...product, quantity: 1 }];
+      return [...prev, {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        quantity: 1,
+        emoji: product.emoji || "☕"
+      }];
     });
+    setSelectedProduct(null);
   }
 
-  function change(id, amount) {
-    setCart(current =>
-      current
-        .map(i => i.id === id ? { ...i, quantity: i.quantity + amount } : i)
-        .filter(i => i.quantity > 0)
+  function changeQuantity(id, amount) {
+    setCart(prev =>
+      prev
+        .map(item =>
+          item.id === id
+            ? { ...item, quantity: item.quantity + amount }
+            : item
+        )
+        .filter(item => item.quantity > 0)
     );
+  }
+
+  function goMenu(category = "all") {
+    setActiveCategory(category);
+    setActiveTab("menu");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   return (
     <div className="app-shell">
       <header className="topbar">
-        <button className="brand" onClick={() => setView('home')}>
+        <button className="brand" onClick={() => setActiveTab("home")} aria-label="Ir al inicio">
           <span className="brand-mark">M</span>
           <span>
-            <strong>MÁRTIE</strong>
+            <strong>MARTIE</strong>
             <small>CAFÉ Y BUENOS MOMENTOS</small>
           </span>
         </button>
 
-        <button className="cart-button" onClick={() => setView('cart')} aria-label="Carrito">
-          <ShoppingBag size={21} />
-          {totalItems > 0 && <b>{totalItems}</b>}
+        <button className="club-pill" onClick={() => setActiveTab("profile")}>
+          <span>✦</span> Martie Club
         </button>
       </header>
 
       <main>
-        {dbError && (
-          <div className="db-notice">
-            <span>{dbError}</span>
-            <button onClick={loadMenu} aria-label="Reintentar">
-              <RefreshCw size={16} />
-            </button>
-          </div>
-        )}
-
-        {view === 'home' && (
+        {activeTab === "home" && (
           <>
             <section className="hero">
               <div className="hero-copy">
-                <span className="eyebrow">HECHO PARA TU MOMENTO</span>
-                <h1>Café que<br /><em>se disfruta.</em></h1>
-                <p>Algo rico, algo tuyo y un buen momento. Pide en Martie y nosotros hacemos el resto.</p>
-                <button className="primary" onClick={() => setView('menu')}>
-                  Ver menú <ChevronRight size={18} />
+                <span className="eyebrow">BUENOS DÍAS, BUENOS MOMENTOS</span>
+                <h1>Tu café,<br /><em>a tu manera.</em></h1>
+                <p>Un espacio para bajar el ritmo, pedir algo rico y disfrutar el momento.</p>
+                <button className="primary-btn" onClick={() => goMenu()}>
+                  Ver menú <span>→</span>
                 </button>
               </div>
-              <div className="hero-cup"><Coffee size={72} strokeWidth={1.25} /></div>
+              <div className="hero-art" aria-hidden="true">
+                <div className="sun"></div>
+                <div className="cup">
+                  <div className="cup-steam s1"></div>
+                  <div className="cup-steam s2"></div>
+                  <div className="cup-body">☕</div>
+                  <div className="cup-handle"></div>
+                </div>
+                <span className="doodle d1">mmm...</span>
+                <span className="doodle d2">♡</span>
+              </div>
             </section>
 
             <section className="section">
-              <div className="section-heading">
+              <div className="section-head">
                 <div>
-                  <span className="eyebrow">PARA EMPEZAR</span>
-                  <h2>Lo más pedido</h2>
+                  <span className="eyebrow">PARA HOY</span>
+                  <h2>Lo que se antoja</h2>
                 </div>
-                <button className="text-button" onClick={() => setView('menu')}>
-                  Ver todo <ChevronRight size={16} />
-                </button>
+                <button className="text-btn" onClick={() => goMenu()}>Ver todo →</button>
+              </div>
+
+              <div className="category-row">
+                {categories.filter(c => c.id !== "all").slice(0, 4).map(cat => (
+                  <button key={cat.id} className="category-chip" onClick={() => goMenu(cat.id)}>
+                    {cat.name}
+                  </button>
+                ))}
               </div>
 
               {loading ? (
-                <div className="loading-card">Cargando el menú…</div>
+                <div className="loading">Preparando el menú…</div>
               ) : (
-                <div className="product-row">
-                  {products.slice(0, 3).map(p => (
-                    <ProductCard key={p.id} product={p} add={add} />
+                <div className="product-grid">
+                  {visibleFeatured.map(product => (
+                    <ProductCard key={product.id} product={product} onClick={() => setSelectedProduct(product)} />
                   ))}
                 </div>
               )}
             </section>
+
+            <section className="club-banner">
+              <div>
+                <span className="eyebrow">MARTIE CLUB</span>
+                <h2>Cada café cuenta.</h2>
+                <p>Acumula puntos en tus compras y descubre beneficios especiales.</p>
+              </div>
+              <button className="secondary-btn" onClick={() => setActiveTab("profile")}>Conocer Club</button>
+            </section>
           </>
         )}
 
-        {view === 'menu' && (
-          <section className="section page">
-            <span className="eyebrow">MARTIE</span>
-            <h1>Menú</h1>
+        {activeTab === "menu" && (
+          <section className="section menu-page">
+            <div className="page-title">
+              <span className="eyebrow">MARTIE</span>
+              <h1>Menú</h1>
+              <p>Elige tus favoritos y personalízalos a tu gusto.</p>
+            </div>
 
-            <div className="categories">
-              {categories.map(c => (
+            <div className="category-row menu-categories">
+              {categories.map(cat => (
                 <button
-                  className={category === c ? 'active' : ''}
-                  key={c}
-                  onClick={() => setCategory(c)}
+                  key={cat.id}
+                  className={`category-chip ${activeCategory === cat.id ? "active" : ""}`}
+                  onClick={() => setActiveCategory(cat.id)}
                 >
-                  {c}
+                  {cat.name}
                 </button>
               ))}
             </div>
 
             {loading ? (
-              <div className="loading-card">Cargando el menú…</div>
-            ) : visible.length === 0 ? (
-              <div className="empty">
-                <Coffee size={34} />
-                <h3>No hay productos disponibles</h3>
-                <p>Pronto tendremos algo nuevo para ti.</p>
-              </div>
+              <div className="loading">Cargando menú…</div>
             ) : (
               <div className="product-grid">
-                {visible.map(p => (
-                  <ProductCard key={p.id} product={p} add={add} />
+                {filteredProducts.map(product => (
+                  <ProductCard key={product.id} product={product} onClick={() => setSelectedProduct(product)} />
                 ))}
               </div>
             )}
           </section>
         )}
 
-        {view === 'cart' && (
-          <section className="section page">
-            <span className="eyebrow">TU PEDIDO</span>
-            <h1>Carrito</h1>
+        {activeTab === "orders" && (
+          <section className="section empty-page">
+            <div className="empty-icon">☕</div>
+            <span className="eyebrow">MIS PEDIDOS</span>
+            <h1>Aquí aparecerán tus pedidos</h1>
+            <p>Cuando hagas tu primer pedido podrás consultar su estado y volver a pedirlo fácilmente.</p>
+            <button className="primary-btn" onClick={() => goMenu()}>Hacer un pedido</button>
+          </section>
+        )}
 
-            {cart.length === 0 ? (
-              <div className="empty">
-                <ShoppingBag size={34} />
-                <h3>Tu carrito está vacío</h3>
-                <p>Agrega algo rico para empezar.</p>
-                <button className="primary" onClick={() => setView('menu')}>Ver menú</button>
+        {activeTab === "profile" && (
+          <section className="section profile-page">
+            <div className="page-title">
+              <span className="eyebrow">MARTIE CLUB</span>
+              <h1>Tu momento, tus puntos.</h1>
+              <p>Inicia sesión para consultar tus pedidos, puntos y beneficios.</p>
+            </div>
+            <div className="club-card">
+              <div className="club-star">✦</div>
+              <div>
+                <span>ACUMULA PUNTOS</span>
+                <strong>10 puntos</strong>
+                <small>por cada $100 MXN de compra</small>
               </div>
-            ) : (
-              <>
-                <div className="cart-list">
-                  {cart.map(item => (
-                    <div className="cart-item" key={item.id}>
-                      <div>
-                        <strong>{item.name}</strong>
-                        <small>{item.description}</small>
-                      </div>
-                      <div className="qty">
-                        <button onClick={() => change(item.id, -1)}><Minus size={15} /></button>
-                        <span>{item.quantity}</span>
-                        <button onClick={() => change(item.id, 1)}><Plus size={15} /></button>
-                      </div>
-                      <strong>${(item.price * item.quantity).toFixed(2)}</strong>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="summary">
-                  <div><span>Subtotal</span><strong>${total.toFixed(2)}</strong></div>
-                  <div><span>Envío</span><span>Se calcula después</span></div>
-                  <div className="grand"><span>Total</span><strong>${total.toFixed(2)}</strong></div>
-                  <button className="primary full">Continuar pedido <ChevronRight size={18} /></button>
-                </div>
-              </>
-            )}
+            </div>
+            <button className="primary-btn full" onClick={() => alert("El acceso a Martie Club se conectará con Supabase Auth en el siguiente módulo.")}>
+              Iniciar sesión
+            </button>
           </section>
         )}
       </main>
 
+      {cartCount > 0 && (
+        <button className="cart-float" onClick={() => alert("El carrito completo se habilitará en el siguiente módulo.")}>
+          <span>🛒</span>
+          <strong>{cartCount}</strong>
+          <b>{money(cartTotal)}</b>
+        </button>
+      )}
+
       <nav className="bottom-nav">
-        <NavButton icon={<Home size={20} />} label="Inicio" active={view === 'home'} onClick={() => setView('home')} />
-        <NavButton icon={<Coffee size={20} />} label="Menú" active={view === 'menu'} onClick={() => setView('menu')} />
-        <NavButton icon={<ShoppingBag size={20} />} label="Pedido" active={view === 'cart'} onClick={() => setView('cart')} badge={totalItems} />
-        <NavButton icon={<UserRound size={20} />} label="Perfil" />
+        <NavItem icon="⌂" label="Inicio" active={activeTab === "home"} onClick={() => setActiveTab("home")} />
+        <NavItem icon="☕" label="Menú" active={activeTab === "menu"} onClick={() => goMenu()} />
+        <NavItem icon="▣" label="Pedidos" active={activeTab === "orders"} onClick={() => setActiveTab("orders")} />
+        <NavItem icon="○" label="Perfil" active={activeTab === "profile"} onClick={() => setActiveTab("profile")} />
       </nav>
+
+      {selectedProduct && (
+        <div className="modal-backdrop" onClick={() => setSelectedProduct(null)}>
+          <div className="product-modal" onClick={e => e.stopPropagation()}>
+            <button className="close-btn" onClick={() => setSelectedProduct(null)}>×</button>
+            <div className="modal-product-art">{selectedProduct.emoji || "☕"}</div>
+            <span className="eyebrow">MARTIE</span>
+            <h2>{selectedProduct.name}</h2>
+            <p>{selectedProduct.description}</p>
+            <div className="modal-bottom">
+              <strong>{money(selectedProduct.price)}</strong>
+              <button className="primary-btn" onClick={() => addToCart(selectedProduct)}>Agregar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function ProductCard({ product, add }) {
+function NavItem({ icon, label, active, onClick }) {
   return (
-    <article className="product-card">
-      <div className="product-image">
-        {product.image_url
-          ? <img src={product.image_url} alt={product.name} />
-          : <Coffee size={35} strokeWidth={1.25} />}
-      </div>
+    <button className={`nav-item ${active ? "active" : ""}`} onClick={onClick}>
+      <span>{icon}</span>
+      <small>{label}</small>
+    </button>
+  );
+}
 
+function ProductCard({ product, onClick }) {
+  const unavailable = product.is_available === false || product.available === false;
+  return (
+    <article className={`product-card ${unavailable ? "unavailable" : ""}`} onClick={!unavailable ? onClick : undefined}>
+      <div className="product-art">
+        <span>{product.emoji || "☕"}</span>
+        {product.is_new && <i>NUEVO</i>}
+        {unavailable && <div className="soldout">Agotado</div>}
+      </div>
       <div className="product-info">
         <div>
           <h3>{product.name}</h3>
-          <span>{product.category_name}</span>
+          <p>{product.description || "Una opción deliciosa de Martie."}</p>
         </div>
-
-        <p>{product.description}</p>
-
-        <div className="product-bottom">
-          <strong>${Number(product.base_price ?? product.price).toFixed(2)}</strong>
-          <button onClick={() => add(product)} aria-label={'Agregar ' + product.name}>
-            <Plus size={18} />
-          </button>
-        </div>
+        <strong>{money(product.price)}</strong>
       </div>
     </article>
   );
 }
 
-function NavButton({ icon, label, active, onClick, badge }) {
-  return (
-    <button className={active ? 'nav-item active' : 'nav-item'} onClick={onClick}>
-      <span className="nav-icon">
-        {icon}
-        {badge ? <b>{badge}</b> : null}
-      </span>
-      <small>{label}</small>
-    </button>
-  );
-}
+export default App;
