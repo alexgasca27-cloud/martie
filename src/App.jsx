@@ -104,13 +104,11 @@ function App() {
       try {
         const { data: cats } = await supabase
           .from("categories")
-          .select("*")
-          .order("sort_order", { ascending: true });
+          .select("*");
 
         const { data: prods } = await supabase
           .from("products")
-          .select("*")
-          .order("sort_order", { ascending: true });
+          .select("*");
 
         if (cats?.length) {
           setCategories([
@@ -193,11 +191,7 @@ function App() {
     <div className="app-shell">
       <header className="topbar">
         <button className="brand" onClick={() => setActiveTab("home")} aria-label="Ir al inicio">
-          <span className="brand-mark">M</span>
-          <span>
-            <strong>MARTIE</strong>
-            <small>CAFÉ Y BUENOS MOMENTOS</small>
-          </span>
+          <img className="brand-logo" src="/branding/martie-logo.png" alt="Martie — Momentos que saben mejor" />
         </button>
 
         <button className="club-pill" onClick={() => setActiveTab("profile")}>

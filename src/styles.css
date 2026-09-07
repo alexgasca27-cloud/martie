@@ -31,12 +31,13 @@ button:focus-visible { outline: 3px solid var(--coffee); outline-offset: 3px; }
   backdrop-filter: blur(12px); border-bottom: 1px solid rgba(107,94,78,.08);
 }
 .brand { display: flex; align-items: center; gap: 10px; background: transparent; color: var(--dark); text-align: left; padding: 0; }
-.brand-mark {
-  width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%;
-  background: var(--pistachio); font-family: "Playfair Display", serif; font-size: 22px;
+.brand-logo {
+  width: 188px;
+  height: 62px;
+  object-fit: contain;
+  object-position: left center;
+  display: block;
 }
-.brand strong { display: block; font-size: 15px; letter-spacing: .18em; }
-.brand small { display: block; font-size: 7px; letter-spacing: .11em; color: var(--muted); margin-top: 2px; }
 .club-pill { background: var(--pink); color: var(--dark); padding: 10px 13px; border-radius: 99px; font-size: 12px; font-weight: 700; }
 .club-pill span { margin-right: 3px; }
 
