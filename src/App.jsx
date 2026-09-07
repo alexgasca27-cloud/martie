@@ -44,7 +44,8 @@ export default function App(){
  const shown=cat==="Todos"?products:products.filter(p=>p.cat===cat);
  const cartCount=cart.reduce((a,x)=>a+x.qty,0),cartTotal=cart.reduce((a,x)=>a+x.qty*x.price,0);
  const extra={"Shot extra":12,Vainilla:8,Caramelo:8,Canela:8};
- const detailTotal=product?product.price+extras.reduce((a,x)=>a+extra[x],0):0;
+ const sizeDelta={Chico:0,Mediano:6,Grande:12};
+ const detailTotal=product?product.price+(sizeDelta[size]||0)+extras.reduce((a,x)=>a+extra[x],0):0;
  const open=p=>{setProduct(p);setSize("Chico");setMilk("Entera");setExtras([]);setQty(1)};
  const menu=c=>{setCat(c);setScreen("menu");window.scrollTo(0,0)};
  const add=()=>{if(!product)return;setCart(c=>[...c,{id:Date.now(),name:product.name,price:detailTotal,qty,detail:`${size} · ${milk}`,img:product.img}]);setProduct(null)};
@@ -70,8 +71,8 @@ export default function App(){
    <section className="detail" onClick={e=>e.stopPropagation()}>
     <button className="close" onClick={()=>setProduct(null)}>×</button>
     <img className="detailImg" src={product.img} alt=""/>
-    <div className="detailTitle"><div><h2>{product.name}</h2><p>{product.desc}</p></div><strong>{money(product.price)}</strong></div>
-    <Options title="Tamaño" values={["Chico","Mediano","Grande"]} selected={size} set={setSize}/>
+    <div className="detailTitle"><div><h2>Personaliza tu {product.name}</h2><p>{product.desc}</p></div><strong>{money(detailTotal)}</strong></div>
+    <Options title="Tamaño" values={["Chico","Mediano","Grande"]} selected={size} set={setSize} deltas={sizeDelta}/>
     <Options title="Tipo de leche" values={["Entera","Deslactosada","Almendra","Avena"]} selected={milk} set={setMilk}/>
     <div className="extras"><h4>Extras</h4>{Object.entries(extra).map(([e,v])=><label key={e}><input type="checkbox" checked={extras.includes(e)} onChange={()=>toggle(e)}/>{e}<span>+ {money(v)}</span></label>)}</div>
     <div className="qty"><button onClick={()=>setQty(Math.max(1,qty-1))}>−</button><b>{qty}</b><button onClick={()=>setQty(qty+1)}>+</button></div>
@@ -93,6 +94,6 @@ function Home({menu,open,products}){return <main>
 function Menu({cat,setCat,shown,open,categories,loading,source}){return <main className="section page"><span className="kicker">MARTIE</span><h1>Nuestro menú</h1><p className="sub">Café, bebidas y más para cada momento.</p><div className="chips">{categories.map(c=><button className={cat===c?"active":""} key={c} onClick={()=>setCat(c)}>{c}</button>)}</div>{loading&&<div className="menuLoading">Cargando menú…</div>}<div className="grid">{shown.map(p=><Mini key={p.id} p={p} open={open} large/>)}</div>{!loading&&!shown.length&&<div className="menuLoading">No hay productos disponibles en esta categoría.</div>}<div className="inlineClub"><div><h2>Martie Club</h2><p>Más café, más momentos.</p><button className="soft">Conocer beneficios →</button></div><img src="/branding/martie-character.png" alt=""/></div></main>}
 function Club(){return <main className="section profile"><img className="profileLogo" src="/branding/martie-logo.png" alt="Martie"/><div className="promo pink"><h1>Martie Club</h1><p>Más café, más momentos.</p><button className="soft">Conocer beneficios →</button></div><div className="promo green"><h2>Pequeños<br/><em>momentos,</em><br/>grandes días.</h2><img src="/branding/martie-character.png" alt=""/></div><div className="list">{[["♧","Recompensas","Acumula puntos y gana bebidas."],["☆","Promociones","Acceso a ofertas especiales."],["♡","Tus favoritos","Guarda lo que más te gusta."],["☕","Historial de pedidos","Revive tus momentos Martie."]].map(x=><button key={x[1]}><span>{x[0]}</span><div><b>{x[1]}</b><small>{x[2]}</small></div><strong>›</strong></button>)}</div><div className="profilePhoto"><img src="/images/club-latte.jpg" alt=""/><span>Momentos que<br/><em>saben mejor</em> ♡</span></div></main>}
 function Orders({cart,total}){return <main className="section empty"><div>☕</div><span className="kicker">MIS PEDIDOS</span><h1>{cart.length?"Tu pedido está listo para continuar.":"Momentos que vuelven."}</h1><p>{cart.length?`${cart.reduce((a,x)=>a+x.qty,0)} productos · ${money(total)}`:"Aquí aparecerán tus pedidos y su seguimiento."}</p></main>}
-function Mini({p,open,large}){return <article className={large?"card large":"mini"} onClick={()=>open(p)}><img src={p.img} alt={p.name}/><div><div><b>{p.name}</b><small>{p.desc}</small></div><strong>{money(p.price)}</strong></div>{large&&<button>+</button>}</article>}
-function Options({title,values,selected,set}){return <div className="option"><h4>{title}</h4><div>{values.map(v=><button className={selected===v?"selected":""} key={v} onClick={()=>set(v)}>{v}</button>)}</div></div>}
+function Mini({p,open,large}){return <article className={large?"card large":"mini"} onClick={()=>open(p)}><img src={p.img} alt={p.name}/><div><div><b>{p.name}</b><small>{p.desc}</small></div><strong>{money(p.price)}</strong></div>{large&&<button className="personalizeBtn">Personalizar</button>}</article>}
+function Options({title,values,selected,set,deltas={}}){return <div className="option"><h4>{title}</h4><div>{values.map(v=><button className={selected===v?"selected":""} key={v} onClick={()=>set(v)}>{v}{deltas[v]?` + ${money(deltas[v])}`:""}</button>)}</div></div>}
 function Nav({label,icon,active,onClick}){return <button className={active?"nav active":"nav"} onClick={onClick}><span>{icon}</span><small>{label}</small></button>}
