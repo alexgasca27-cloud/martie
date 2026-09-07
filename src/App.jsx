@@ -89,7 +89,7 @@ export default function App(){
  const availableSlots=slotList;
  const today=new Date().toLocaleDateString('en-CA',{timeZone:'America/Merida'});
  useEffect(()=>{const localSlots=()=>{const arr=[];const now=new Date();let start;if(checkout.date===today){start=new Date(now.getTime()+40*60000);start.setSeconds(0,0);start.setMinutes(Math.ceil(start.getMinutes()/15)*15);}else{start=new Date();start.setHours(9,0,0,0);}const end=new Date();end.setHours(19,0,0,0);for(let t=new Date(start);t<end;t.setMinutes(t.getMinutes()+15))arr.push(`${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`);return arr;};
-if(!checkout.date){update('date',today);return;}
+if(!checkout.date){updateCheckout('date',today);return;}
 if(supabaseReady){supabase.functions.invoke('available-slots',{body:{date:checkout.date}}).then(({data,error})=>{if(!error&&Array.isArray(data?.slots)&&data.slots.length){setSlotList(data.slots)}else{setSlotList(localSlots())}}).catch(()=>setSlotList(localSlots()))}else setSlotList(localSlots());},[checkout.date,supabaseReady,today]);
  const submitOrder=async()=>{
   if(!checkout.name||!checkout.phone||!checkout.time)return setAuthMsg('Completa nombre, teléfono y horario.');
