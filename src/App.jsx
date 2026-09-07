@@ -191,7 +191,7 @@ function App() {
     <div className="app-shell">
       <header className="topbar">
         <button className="brand" onClick={() => setActiveTab("home")} aria-label="Ir al inicio">
-          <img className="brand-logo" src="/branding/martie-logo.png" alt="Martie — Momentos que saben mejor" />
+          <img className="brand-logo" src="/branding/martie-logo-transparent.png" alt="Martie — Momentos que saben mejor" />
         </button>
 
         <button className="club-pill" onClick={() => setActiveTab("profile")}>
@@ -213,14 +213,10 @@ function App() {
               </div>
               <div className="hero-art" aria-hidden="true">
                 <div className="sun"></div>
-                <div className="cup">
-                  <div className="cup-steam s1"></div>
-                  <div className="cup-steam s2"></div>
-                  <div className="cup-body">☕</div>
-                  <div className="cup-handle"></div>
-                </div>
+                <img className="hero-character" src="/branding/martie-logo-transparent.png" alt="" />
                 <span className="doodle d1">mmm...</span>
                 <span className="doodle d2">♡</span>
+                <span className="doodle d3">café para mejores días</span>
               </div>
             </section>
 
@@ -252,6 +248,15 @@ function App() {
               )}
             </section>
 
+            <section className="moment-banner">
+              <div className="moment-copy">
+                <span className="eyebrow">MOMENTOS MARTIE</span>
+                <h2>Pequeños momentos,<br /><em>grandes días.</em></h2>
+                <p>Un café rico, una pausa y un poquito de tiempo para ti.</p>
+              </div>
+              <img src="/branding/martie-logo-transparent.png" alt="" className="moment-character" />
+            </section>
+
             <section className="club-banner">
               <div>
                 <span className="eyebrow">MARTIE CLUB</span>
@@ -259,7 +264,10 @@ function App() {
                 <p>Acumula puntos en tus compras y descubre beneficios especiales.</p>
               </div>
               <button className="secondary-btn" onClick={() => setActiveTab("profile")}>Conocer Club</button>
-            </section>
+            <div className="brand-signature">
+              <img src="/branding/martie-logo-transparent.png" alt="Martie" />
+              <span>Momentos que saben mejor</span>
+            </div>
           </>
         )}
 
