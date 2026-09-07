@@ -120,8 +120,8 @@ export default function App(){
   {screen==="home"&&<Home menu={menu} open={open} products={products}/>}
   {screen==="menu"&&<Menu cat={cat} setCat={setCat} shown={shown} open={open} categories={categories} loading={loading} source={source}/>}
   {screen==="club"&&<Club/>}
-  {screen==="orders"&&<Orders cart={cart} total={cartTotal}/>}
-  {cartCount>0&&<button className="cartBar" onClick={()=>setScreen("orders")}><span>🛒</span><b>{cartCount}</b><strong>{money(cartTotal)}</strong></button>}
+  {screen==="orders"&&<Orders cart={cart} total={cartTotal} setCart={setCart}/>}
+  {cartCount>0&&<button className="cartBar" onClick={()=>setScreen("orders")}><span>🛒</span><b>{cartCount}</b><strong>Ver carrito · {money(cartTotal)}</strong></button>}
   <nav className="bottom">
    <Nav label="Inicio" icon="⌂" active={screen==="home"} onClick={()=>setScreen("home")}/>
    <Nav label="Menú" icon="☕" active={screen==="menu"} onClick={()=>menu("Todos")}/>
@@ -152,22 +152,24 @@ function Home({menu,open,products}){return <main>
  </main>}
 function Menu({cat,setCat,shown,open,categories,loading,source}){return <main className="section page"><span className="kicker">MARTIE</span><h1>Nuestro menú</h1><p className="sub">Café, bebidas y más para cada momento.</p><div className="chips">{categories.map(c=><button className={cat===c?"active":""} key={c} onClick={()=>setCat(c)}>{c}</button>)}</div>{loading&&<div className="menuLoading">Cargando menú…</div>}<div className="grid">{shown.map(p=><Mini key={p.id} p={p} open={open} large/>)}</div>{!loading&&!shown.length&&<div className="menuLoading">No hay productos disponibles en esta categoría.</div>}<div className="inlineClub"><div><h2>Martie Club</h2><p>Más café, más momentos.</p><button className="soft">Conocer beneficios →</button></div><img src="/branding/martie-character.png" alt=""/></div></main>}
 function Club(){return <main className="section profile"><img className="profileLogo" src="/branding/martie-logo.png" alt="Martie"/><div className="promo pink"><h1>Martie Club</h1><p>Más café, más momentos.</p><button className="soft">Conocer beneficios →</button></div><div className="promo green"><h2>Pequeños<br/><em>momentos,</em><br/>grandes días.</h2><img src="/branding/martie-character.png" alt=""/></div><div className="list">{[["♧","Recompensas","Acumula puntos y gana bebidas."],["☆","Promociones","Acceso a ofertas especiales."],["♡","Tus favoritos","Guarda lo que más te gusta."],["☕","Historial de pedidos","Revive tus momentos Martie."]].map(x=><button key={x[1]}><span>{x[0]}</span><div><b>{x[1]}</b><small>{x[2]}</small></div><strong>›</strong></button>)}</div><div className="profilePhoto"><img src="/images/club-latte.jpg" alt=""/><span>Momentos que<br/><em>saben mejor</em> ♡</span></div></main>}
-function Orders({cart,total}){return <main className="section empty"><div>☕</div><span className="kicker">MIS PEDIDOS</span><h1>{cart.length?"Tu pedido está listo para continuar.":"Momentos que vuelven."}</h1><p>{cart.length?`${cart.reduce((a,x)=>a+x.qty,0)} productos · ${money(total)}`:"Aquí aparecerán tus pedidos y su seguimiento."}</p></main>}
-function Mini({p,open,large}){return <article className={large?"card large":"mini"} onClick={()=>open(p)}><img src={p.img} alt={p.name}/><div><div><b>{p.name}</b><small>{p.desc}</small></div><strong>{money(p.price)}</strong></div>{large&&<button className="personalizeBtn">Personalizar</button>}</article>}
-function DynamicOption({option,selected,setSelected}){
- const multi=option.type.includes("multi")||option.type.includes("checkbox");
- const choose=v=>{
-  const names=(option.values||[]).map(x=>x.name);
-  if(multi){
-   if(selected.includes(v.name)){setSelected(selected.filter(x=>x!==v.name));return}
-   const current=selected.filter(x=>names.includes(x));
-   if(option.max>0&&current.length>=option.max)return;
-   setSelected([...selected,v.name]);
-  }else{
-   setSelected([...selected.filter(x=>!names.includes(x)),v.name]);
-  }
- };
- return <div className="option dynamic"><h4>{option.name}{option.required&&<small className="required"> · obligatorio</small>}</h4><div>{(option.values||[]).map(v=><button className={selected.includes(v.name)?"selected":""} key={v.id} onClick={()=>choose(v)}>{v.name}{v.delta?` + ${money(v.delta)}`:""}</button>)}</div></div>
+function Orders({cart,total,setCart}){
+ const update=(id,delta)=>setCart(c=>c.map(x=>x.id===id?{...x,qty:Math.max(1,x.qty+delta)}:x));
+ const remove=id=>setCart(c=>c.filter(x=>x.id!==id));
+ return <main className="section cartPage">
+   <div className="cartHead"><button onClick={()=>window.history.length>1?window.history.back():null}>←</button><div><span className="kicker">MARTIE</span><h1>Tu carrito</h1></div></div>
+   {!cart.length?<div className="empty cartEmpty"><div>🛒</div><h2>Tu carrito está vacío.</h2><p>Agrega algo rico para continuar.</p><button className="dark" onClick={()=>location.reload()}>Ver menú →</button></div>:
+   <>
+    <div className="cartItems">{cart.map(item=><article className="cartItem" key={item.id}>
+      <img src={item.img} alt=""/>
+      <div className="cartInfo"><b>{item.name}</b><small>{item.detail}</small><strong>{money(item.price)} c/u</strong>
+       <div className="cartActions"><div className="qty miniQty"><button onClick={()=>update(item.id,-1)}>−</button><b>{item.qty}</b><button onClick={()=>update(item.id,1)}>+</button></div><button className="remove" onClick={()=>remove(item.id)}>Eliminar</button></div>
+      </div>
+      <strong className="lineTotal">{money(item.price*item.qty)}</strong>
+    </article>)}</div>
+    <div className="summary"><div><span>Subtotal</span><b>{money(total)}</b></div><div><span>Envío</span><b>Se calcula al elegir entrega</b></div><div className="grand"><span>Total</span><strong>{money(total)}</strong></div></div>
+    <button className="checkoutBtn" onClick={()=>alert("Siguiente paso: datos del cliente")}>Continuar pedido <span>→</span></button>
+   </>}
+ </main>
 }
 function Options({title,values,selected,set,deltas={}}){return <div className="option"><h4>{title}</h4><div>{values.map(v=><button className={selected===v?"selected":""} key={v} onClick={()=>set(v)}>{v}{deltas[v]?` + ${money(deltas[v])}`:""}</button>)}</div></div>}
 function Nav({label,icon,active,onClick}){return <button className={active?"nav active":"nav"} onClick={onClick}><span>{icon}</span><small>{label}</small></button>}
