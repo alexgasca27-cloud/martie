@@ -142,17 +142,26 @@ export function AdminRoute(){
  useEffect(()=>{
   if(!supabaseReady){setChecking(false);setMsg('Configura las variables de Supabase para entrar al administrador.');return;}
   let active=true;
+  const verifyAdmin=async(u)=>{
+   if(!u)return false;
+   const {data:staff,error:staffError}=await supabase.from('martie_staff').select('role,is_active').eq('user_id',u.id).maybeSingle();
+   if(!staffError && staff?.role==='admin' && staff?.is_active!==false) return true;
+   const {data:isAdmin}=await supabase.rpc('martie_is_admin');
+   return isAdmin===true;
+  };
   supabase.auth.getSession().then(async ({data})=>{
    if(!active)return;
    const u=data.session?.user||null; setUser(u);
-   if(u){const {data:isAdmin}=await supabase.rpc('martie_is_admin'); if(active){setAllowed(isAdmin===true); if(isAdmin!==true)setMsg('Esta cuenta no tiene permisos de administrador.');}}
+   if(u){const ok=await verifyAdmin(u); if(active){setAllowed(ok); if(!ok)setMsg('Tu cuenta no tiene permisos de administrador.');}}
    setChecking(false);
   });
   const {data}=supabase.auth.onAuthStateChange(async (_e,s)=>{
    const u=s?.user||null; setUser(u);
    if(!u){setAllowed(false);setChecking(false);return;}
-   const {data:staff}=await supabase.from('martie_staff').select('role,is_active').eq('user_id',u.id).maybeSingle();
-   if(active){setAllowed(staff?.role==='admin'&&staff?.is_active!==false);setMsg(staff?.role==='admin'&&staff?.is_active!==false?'':'Esta cuenta no tiene permisos de administrador.');setChecking(false);}
+   const {data:staff,error:staffError}=await supabase.from('martie_staff').select('role,is_active').eq('user_id',u.id).maybeSingle();
+   let ok=!staffError && staff?.role==='admin'&&staff?.is_active!==false;
+   if(!ok){const {data:isAdmin}=await supabase.rpc('martie_is_admin'); ok=isAdmin===true;}
+   if(active){setAllowed(ok);setMsg(ok?'':'Tu cuenta no tiene permisos de administrador.');setChecking(false);}
   });
   return()=>{active=false;data.subscription.unsubscribe()};
  },[]);
@@ -173,8 +182,10 @@ function Admin({products,setProducts,orders,adminTab,setAdminTab,onLogout}){
   setMsg('');
   const {data:u}=await supabase.auth.getUser();
   if(!u?.user){setMsg('Sesión administrativa no disponible. Vuelve a iniciar sesión en /admin.');return}
-  const {data:staff}=await supabase.from('martie_staff').select('role,is_active').eq('user_id',u.user.id).maybeSingle();
-  if(staff?.role!=='admin'||!staff?.is_active){setMsg('Tu cuenta no tiene permisos de administrador.');return}
+  const {data:staff,error:staffError}=await supabase.from('martie_staff').select('role,is_active').eq('user_id',u.user.id).maybeSingle();
+  let isAdmin=!staffError && staff?.role==='admin'&&staff?.is_active!==false;
+  if(!isAdmin){const {data:rpcAdmin}=await supabase.rpc('martie_is_admin');isAdmin=rpcAdmin===true;}
+  if(!isAdmin){setMsg('Tu cuenta no tiene permisos de administrador.');return}
   const [{data:o},{data:c},{data:p},{data:s},{data:z}]=await Promise.all([
    supabase.from('martie_orders').select('*').order('created_at',{ascending:false}),
    supabase.from('martie_categories').select('*').order('sort_order'),
