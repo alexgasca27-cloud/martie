@@ -1,175 +1,110 @@
-import React,{useEffect,useState} from "react";
-import {supabase,supabaseReady} from "./lib/supabase";
+import React,{useEffect,useMemo,useState} from 'react';
+import {supabase,supabaseReady} from './lib/supabase';
 
 const FALLBACK=[
-{id:1,name:"Latte",desc:"Espresso + leche cremosa.",price:49,cat:"Café",img:"/images/latte.jpg"},
-{id:2,name:"Iced Latte",desc:"Café frío, mismo gran sabor.",price:55,cat:"Bebidas frías",img:"/images/iced-latte.jpg"},
-{id:3,name:"Matcha Latte",desc:"Energía natural.",price:59,cat:"Café",img:"/images/matcha.jpg"},
-{id:4,name:"Croissant",desc:"Hojaldre perfecto.",price:45,cat:"Postres",img:"/images/croissant.jpg"},
-{id:5,name:"Bowl de Frutas",desc:"Frescura en cada bocado.",price:69,cat:"Comida",img:"/images/bowl.jpg"},
-{id:6,name:"Smoothie Fresa",desc:"Natural y delicioso.",price:55,cat:"Bebidas frías",img:"/images/smoothie.jpg"}
-];
-const CATS=["Todos","Café","Bebidas frías","Comida","Postres"];
-const money=n=>new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN"}).format(n);
+{id:1,name:'Latte',desc:'Espresso + leche cremosa.',price:49,cat:'Café',img:'/images/latte.jpg'},
+{id:2,name:'Iced Latte',desc:'Café frío, mismo gran sabor.',price:55,cat:'Bebidas frías',img:'/images/iced-latte.jpg'},
+{id:3,name:'Matcha Latte',desc:'Energía natural.',price:59,cat:'Café',img:'/images/matcha.jpg'},
+{id:4,name:'Croissant',desc:'Hojaldre perfecto.',price:45,cat:'Postres',img:'/images/croissant.jpg'},
+{id:5,name:'Bowl de Frutas',desc:'Frescura en cada bocado.',price:69,cat:'Comida',img:'/images/bowl.jpg'},
+{id:6,name:'Smoothie Fresa',desc:'Natural y delicioso.',price:55,cat:'Bebidas frías',img:'/images/smoothie.jpg'}];
+const CATS=['Todos','Café','Bebidas frías','Comida','Postres'];
+const money=n=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(Number(n)||0);
+const orderId=()=>`MRT-${new Date().toISOString().slice(0,10).replaceAll('-','')}-${String(Date.now()).slice(-5)}`;
 
 function pick(o,keys,def=null){for(const k of keys){if(o?.[k]!==undefined&&o?.[k]!==null)return o[k]}return def}
-function normalizeProduct(p){
- const name=pick(p,["name","nombre"],"Producto");
- const price=Number(pick(p,["price","base_price","precio"],0));
- const desc=pick(p,["description","descripcion"],"");
- const cat=pick(p,["category_name","category","categoria"],"Café");
- const image=pick(p,["image_url","image","imagen_url","imagen"],"/images/latte.jpg");
- return {id:pick(p,["id"],name),name,desc,price,cat,img:image,available:Boolean(pick(p,["is_available","available","disponible"],true))};
-}
-function normalizeCategory(c){return pick(c,["name","nombre","title"],"Categoría")}
-function normalizeOption(o){
- return {
-  id:pick(o,["id"],Math.random()),
-  name:pick(o,["name","title","label","nombre"],"Opción"),
-  required:Boolean(pick(o,["required","is_required","obligatory","obligatoria"],false)),
-  type:String(pick(o,["selection_type","type","input_type","tipo"],"single")).toLowerCase(),
-  max:Number(pick(o,["max_selections","max","maximum"],0))||0,
-  order:Number(pick(o,["display_order","sort_order","order","orden"],0))||0
- };
-}
-function normalizeValue(v){
- return {
-  id:pick(v,["id"],Math.random()),
-  optionId:pick(v,["option_id","product_option_id","productOptionId"],null),
-  name:pick(v,["name","label","value","nombre"],"Opción"),
-  delta:Number(pick(v,["price_delta","price_adjustment","additional_price","extra_price","precio_extra","price"],0))||0,
-  available:Boolean(pick(v,["is_available","available","disponible"],true)),
-  order:Number(pick(v,["display_order","sort_order","order","orden"],0))||0
- };
-}
+function normalizeProduct(p){return {id:pick(p,['id'],Date.now()),name:pick(p,['name','nombre'],'Producto'),desc:pick(p,['description','descripcion'],''),price:Number(pick(p,['price','base_price','precio'],0)),cat:pick(p,['category_name','category','categoria'],'Café'),img:pick(p,['image_url','image','imagen_url','imagen'],'/images/latte.jpg'),available:Boolean(pick(p,['is_available','available','disponible'],true))}}
+function normalizeCategory(c){return pick(c,['name','nombre','title'],'Categoría')}
+
+const DEMO_OPTIONS={
+ 'Latte':[
+  {id:'size',name:'Tamaño',type:'single',required:true,values:[['Chico',0],['Mediano',6],['Grande',12]]},
+  {id:'milk',name:'Tipo de leche',type:'single',required:true,values:[['Entera',0],['Deslactosada',0],['Almendra',0],['Avena',0]]},
+  {id:'extras',name:'Extras',type:'multi',values:[['Shot extra',12],['Vainilla',8],['Caramelo',8],['Canela',8]]}],
+ 'Iced Latte':[
+  {id:'size',name:'Tamaño',type:'single',required:true,values:[['Chico',0],['Mediano',6],['Grande',12]]},
+  {id:'extras',name:'Extras',type:'multi',values:[['Vainilla',8],['Caramelo',8],['Shot extra',12]]}],
+ 'Matcha Latte':[
+  {id:'size',name:'Tamaño',type:'single',required:true,values:[['Chico',0],['Mediano',6],['Grande',12]]},
+  {id:'milk',name:'Tipo de leche',type:'single',required:true,values:[['Entera',0],['Deslactosada',0],['Almendra',0],['Avena',0]]},
+  {id:'sweet',name:'Endulzante',type:'single',values:[['Sin azúcar',0],['Miel',5],['Stevia',0]]}],
+ 'Croissant':[{id:'fill',name:'Relleno',type:'single',values:[['Natural',0],['Chocolate',8],['Almendra',10]]}],
+ 'Bowl de Frutas':[{id:'extra',name:'Extras',type:'multi',values:[['Granola',6],['Yogurt',8],['Frutos rojos',10]]}],
+ 'Smoothie Fresa':[{id:'size',name:'Tamaño',type:'single',values:[['Chico',0],['Mediano',6],['Grande',12]]},{id:'extra',name:'Extras',type:'multi',values:[['Proteína',15],['Chía',7]]}]
+};
+function optionsFor(product){return DEMO_OPTIONS[product?.name]||[]}
 
 export default function App(){
- const [screen,setScreen]=useState("home"),[cat,setCat]=useState("Todos"),[products,setProducts]=useState(FALLBACK),[categories,setCategories]=useState(CATS),[loading,setLoading]=useState(true),[source,setSource]=useState("demo");
- const [product,setProduct]=useState(null),[cart,setCart]=useState([]),[optionMap,setOptionMap]=useState({});
- const [size,setSize]=useState("Chico"),[milk,setMilk]=useState("Entera"),[extras,setExtras]=useState([]),[qty,setQty]=useState(1);
- useEffect(()=>{loadMenu()},[]);
+ const [screen,setScreen]=useState('home'),[cat,setCat]=useState('Todos');
+ const [products,setProducts]=useState(FALLBACK),[categories,setCategories]=useState(CATS),[loading,setLoading]=useState(true);
+ const [product,setProduct]=useState(null),[cart,setCart]=useState(()=>JSON.parse(localStorage.getItem('martie_cart')||'[]'));
+ const [selected,setSelected]=useState({}),[qty,setQty]=useState(1),[editing,setEditing]=useState(null);
+ const [checkout,setCheckout]=useState({name:'',phone:'',email:'',delivery:'pickup',address:'',exterior:'',interior:'',neighborhood:'',cp:'',reference:'',date:'',time:'',payment:'CARD_TERMINAL',notes:''});
+ const [orders,setOrders]=useState(()=>JSON.parse(localStorage.getItem('martie_orders')||'[]'));
+ const [auth,setAuth]=useState(()=>JSON.parse(localStorage.getItem('martie_demo_auth')||'null')),[authMode,setAuthMode]=useState('login'),[authForm,setAuthForm]=useState({email:'',password:'',name:''}),[authMsg,setAuthMsg]=useState('');
+ const [club,setClub]=useState(()=>JSON.parse(localStorage.getItem('martie_club')||'{"points":0,"joined":"2026-09-07"}'));
+ const [adminTab,setAdminTab]=useState('dashboard');
+ useEffect(()=>{localStorage.setItem('martie_cart',JSON.stringify(cart))},[cart]);
+ useEffect(()=>{localStorage.setItem('martie_orders',JSON.stringify(orders))},[orders]);
+ useEffect(()=>{localStorage.setItem('martie_club',JSON.stringify(club))},[club]);
+ useEffect(()=>{loadMenu(); if(supabaseReady){supabase.auth.getSession().then(({data})=>setAuth(data.session?.user||null)); const {data}=supabase.auth.onAuthStateChange((_e,s)=>setAuth(s?.user||null)); return()=>data.subscription.unsubscribe()}},[]);
  async function loadMenu(){
   if(!supabaseReady){setLoading(false);return}
-  try{
-   const [{data:cs,error:ce},{data:ps,error:pe}]=await Promise.all([
-    supabase.from("categories").select("*"),
-    supabase.from("products").select("*")
-   ]);
-   if(ce||pe) throw ce||pe;
-   const pc=(ps||[]).map(normalizeProduct).filter(p=>p.available);
-   if(pc.length){setProducts(pc);setSource("supabase")}
-   if((cs||[]).length)setCategories(["Todos",...(cs||[]).map(normalizeCategory)]);
-
-   // Options are loaded independently. If the option tables are not populated yet,
-   // the product uses the demo defaults below.
-   const [{data:os,error:oe},{data:vs,error:ve}]=await Promise.all([
-    supabase.from("product_options").select("*"),
-    supabase.from("product_option_values").select("*")
-   ]);
-   if(!oe&&!ve){
-    const opts=(os||[]).map(normalizeOption).sort((a,b)=>a.order-b.order);
-    const vals=(vs||[]).map(normalizeValue).filter(v=>v.available).sort((a,b)=>a.order-b.order);
-    const grouped={};
-    for(const o of opts){
-      grouped[o.id]={...o,values:vals.filter(v=>String(v.optionId)===String(o.id))};
-    }
-    const byProduct={};
-    for(const o of opts){
-      const pid=pick(os.find(x=>String(pick(x,["id"]))===String(o.id)),["product_id","productId","producto_id"],null);
-      if(pid!==null){(byProduct[pid]??=[]).push(grouped[o.id])}
-    }
-    setOptionMap(byProduct);
-   }
-  }catch(e){console.warn("Martie: menú demo por ahora.",e)}
-  finally{setLoading(false)}
- }
- const shown=cat==="Todos"?products:products.filter(p=>p.cat===cat);
- const cartCount=cart.reduce((a,x)=>a+x.qty,0),cartTotal=cart.reduce((a,x)=>a+x.qty*x.price,0);
- const demoConfigs={
-  "Café":[
-    {id:"size",name:"Tamaño",type:"single",values:[{id:"s1",name:"Chico",delta:0},{id:"s2",name:"Mediano",delta:6},{id:"s3",name:"Grande",delta:12}]},
-    {id:"milk",name:"Tipo de leche",type:"single",values:[{id:"m1",name:"Entera",delta:0},{id:"m2",name:"Deslactosada",delta:0},{id:"m3",name:"Almendra",delta:0},{id:"m4",name:"Avena",delta:0}]},
-    {id:"extras",name:"Extras",type:"multi",max:4,values:[{id:"e1",name:"Shot extra",delta:12},{id:"e2",name:"Vainilla",delta:8},{id:"e3",name:"Caramelo",delta:8},{id:"e4",name:"Canela",delta:8}]}
-  ],
-  "Matcha":[
-    {id:"size",name:"Tamaño",type:"single",values:[{id:"s1",name:"Chico",delta:0},{id:"s2",name:"Mediano",delta:6},{id:"s3",name:"Grande",delta:12}]},
-    {id:"milk",name:"Tipo de leche",type:"single",values:[{id:"m1",name:"Entera",delta:0},{id:"m2",name:"Deslactosada",delta:0},{id:"m3",name:"Almendra",delta:0},{id:"m4",name:"Avena",delta:0}]},
-    {id:"sweet",name:"Endulzante",type:"single",values:[{id:"w1",name:"Sin azúcar",delta:0},{id:"w2",name:"Miel",delta:5},{id:"w3",name:"Stevia",delta:0}]}
-  ],
-  "Bebidas frías":[
-    {id:"size",name:"Tamaño",type:"single",values:[{id:"s1",name:"Chico",delta:0},{id:"s2",name:"Mediano",delta:6},{id:"s3",name:"Grande",delta:12}]},
-    {id:"extras",name:"Extras",type:"multi",max:3,values:[{id:"e1",name:"Vainilla",delta:8},{id:"e2",name:"Caramelo",delta:8},{id:"e3",name:"Shot extra",delta:12}]}
-  ],
-  "Postres":[{id:"filling",name:"Relleno",type:"single",values:[{id:"f1",name:"Natural",delta:0},{id:"f2",name:"Chocolate",delta:8},{id:"f3",name:"Almendra",delta:10}]}],
-  "Comida":[{id:"extras",name:"Extras",type:"multi",max:3,values:[{id:"e1",name:"Aguacate",delta:12},{id:"e2",name:"Queso extra",delta:10}]}]
- };
- const fallbackOptions=product?(product.name==="Latte"||product.name==="Iced Latte"?demoConfigs[product.cat==="Bebidas frías"?"Bebidas frías":"Café"]:product.name==="Matcha Latte"?demoConfigs["Matcha"]:demoConfigs[product.cat]||[]):[];
- const dynamicOptions=product?(optionMap[product.id]?.length?optionMap[product.id]:fallbackOptions):[];
- const dynamicDelta=dynamicOptions.reduce((sum,o)=>sum+(o.values||[]).filter(v=>extras.includes(v.name)).reduce((x,v)=>x+v.delta,0),0);
- const detailTotal=product?product.price+dynamicDelta:0;
- const open=p=>{setProduct(p);setExtras([]);setQty(1)};
- const menu=c=>{setCat(c);setScreen("menu");window.scrollTo({top:0,behavior:"smooth"})};
- const add=()=>{if(!product)return;const detail=extras.length?extras.join(" · "):"Sin personalización adicional";setCart(c=>[...c,{id:Date.now(),name:product.name,price:detailTotal,qty,detail,img:product.img}]);setProduct(null)};
- const toggle=e=>setExtras(x=>x.includes(e)?x.filter(v=>v!==e):[...x,e]);
-
+  try{const [{data:cs,error:ce},{data:ps,error:pe}]=await Promise.all([supabase.from('categories').select('*'),supabase.from('products').select('*')]);if(ce||pe)throw ce||pe;if(ps?.length)setProducts(ps.map(normalizeProduct).filter(x=>x.available));if(cs?.length)setCategories(['Todos',...cs.map(normalizeCategory)])}catch(e){console.warn('Martie: usando menú demo.',e)}finally{setLoading(false)}}
+ const shown=useMemo(()=>cat==='Todos'?products:products.filter(p=>p.cat===cat),[products,cat]);
+ const cartCount=cart.reduce((a,x)=>a+x.qty,0),cartTotal=cart.reduce((a,x)=>a+x.qty*x.unitPrice,0);
+ const opts=product?optionsFor(product):[];
+ const optionDelta=opts.reduce((sum,o)=>sum+(o.values||[]).filter(v=>selected[o.id]?.includes(v[0])).reduce((a,v)=>a+v[1],0),0);
+ const currentUnit=product?product.price+optionDelta:0;
+ const selectedLabels=opts.flatMap(o=>selected[o.id]||[]);
+ const open=p=>{setProduct(p);setSelected(Object.fromEntries(optionsFor(p).map(o=>[o.id,o.type==='single'?[o.values[0][0]]:[]])));setQty(1);setEditing(null)};
+ const edit=item=>{const p=products.find(x=>String(x.id)===String(item.productId))||{id:item.productId,name:item.name,desc:'',price:item.basePrice||item.unitPrice,img:item.img,cat:item.cat};setProduct(p);setEditing(item.id);setSelected(item.optionMap||{});setQty(item.qty)};
+ const add=()=>{if(!product)return;const item={id:editing||Date.now(),productId:product.id,name:product.name,basePrice:product.price,unitPrice:currentUnit,qty,detail:selectedLabels.length?selectedLabels.join(' · '):'Sin personalización adicional',optionMap:selected,img:product.img,cat:product.cat,note:''};setCart(c=>editing?c.map(x=>x.id===editing?item:x):[...c,item]);setProduct(null);setEditing(null)};
+ const changeQty=(id,d)=>setCart(c=>c.map(x=>x.id===id?{...x,qty:Math.max(1,x.qty+d)}:x));
+ const remove=id=>setCart(c=>c.filter(x=>x.id!==id));
+ const goMenu=c=>{setCat(c);setScreen('menu');window.scrollTo({top:0,behavior:'smooth'})};
+ const beginCheckout=()=>{if(cart.length)setScreen('checkout')};
+ const updateCheckout=(k,v)=>setCheckout(x=>({...x,[k]:v}));
+ const availableSlots=useMemo(()=>{const now=new Date(),start=new Date(now.getTime()+40*60000);start.setSeconds(0,0);const m=start.getMinutes();start.setMinutes(m%15?m+(15-m%15):m);const arr=[];for(let d=new Date(start);d.getHours()<19;d.setMinutes(d.getMinutes()+15)){arr.push(`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`)}return arr},[]);
+ const today=new Date().toISOString().slice(0,10);
+ const validPayment=checkout.delivery==='delivery'?'TRANSFER':checkout.payment;
+ const submitOrder=()=>{if(!checkout.name||!checkout.phone||!checkout.date||!checkout.time)return setAuthMsg('Completa nombre, teléfono, fecha y horario.');if(checkout.delivery==='delivery'&&(!checkout.address||!checkout.neighborhood||!checkout.cp))return setAuthMsg('Completa los datos de envío.');const id=orderId();const state=validPayment==='TRANSFER'?'PENDING_PAYMENT':'PENDING_CONFIRMATION';const o={id,createdAt:new Date().toISOString(),items:cart,total:cartTotal,customer:{...checkout,payment:validPayment},status:state,paymentStatus:validPayment==='TRANSFER'?'WAITING_PROOF':'PENDING',timeline:[{status:'Pedido recibido',at:new Date().toISOString()}]};setOrders(x=>[o,...x]);setCart([]);setCheckout(x=>({...x,payment:validPayment}));setScreen('confirmation');setAuthMsg('');/* Los puntos se acreditan al completar el pedido. */};
+ const waText=screen==='confirmation'&&orders[0]?`Hola Martie! Soy ${orders[0].customer.name}. Mi pedido es ${orders[0].id}. Total: ${money(orders[0].total)}. ${orders[0].paymentStatus==='WAITING_PROOF'?'Te envío mi comprobante de transferencia.':'Gracias!'}`:'';
+ const whatsapp=`https://wa.me/?text=${encodeURIComponent(waText)}`;
+ const logout=async()=>{if(supabaseReady)await supabase.auth.signOut();setAuth(null)};
+ const login=async()=>{setAuthMsg('');if(!authForm.email||!authForm.password)return setAuthMsg('Ingresa correo y contraseña.');if(!supabaseReady){setAuth({email:authForm.email,user_metadata:{full_name:authForm.name||'Cliente Martie'}});setScreen('profile');return}const fn=authMode==='login'?supabase.auth.signInWithPassword({email:authForm.email,password:authForm.password}):supabase.auth.signUp({email:authForm.email,password:authForm.password,options:{data:{full_name:authForm.name}}});const {error}=await fn;if(error)return setAuthMsg(error.message);setScreen('profile')};
  return <div className="app">
-  <header className="topbar">
-   <button className="logoBtn" onClick={()=>setScreen("home")}><img src="/branding/martie-logo.png" alt="Martie"/></button>
-   <button className="clubTop" onClick={()=>setScreen("club")}>✦ Martie Club</button>
-  </header>
-  {screen==="home"&&<Home menu={menu} open={open} products={products}/>}
-  {screen==="menu"&&<Menu cat={cat} setCat={setCat} shown={shown} open={open} categories={categories} loading={loading} source={source}/>}
-  {screen==="club"&&<Club/>}
-  {screen==="orders"&&<Orders cart={cart} total={cartTotal} setCart={setCart}/>}
-  {cartCount>0&&<button className="cartBar" onClick={()=>setScreen("orders")}><span>🛒</span><b>{cartCount}</b><strong>Ver carrito · {money(cartTotal)}</strong></button>}
-  <nav className="bottom">
-   <Nav label="Inicio" icon="⌂" active={screen==="home"} onClick={()=>setScreen("home")}/>
-   <Nav label="Menú" icon="☕" active={screen==="menu"} onClick={()=>menu("Todos")}/>
-   <Nav label="Pedidos" icon="▣" active={screen==="orders"} onClick={()=>setScreen("orders")}/>
-   <Nav label="Perfil" icon="○" active={screen==="club"} onClick={()=>setScreen("club")}/>
-  </nav>
-  {product&&<div className="overlay" onClick={()=>setProduct(null)}>
-   <section className="detail" onClick={e=>e.stopPropagation()}>
-    <button className="close" onClick={()=>setProduct(null)}>×</button>
-    <img className="detailImg" src={product.img} alt=""/>
-    <div className="detailTitle"><div><h2>Personaliza tu {product.name}</h2><p>{product.desc}</p></div><strong>{money(detailTotal)}</strong></div>
-    {dynamicOptions.map(o=><DynamicOption key={o.id} option={o} selected={extras} setSelected={setExtras}/>)}
-    <div className="qty"><button onClick={()=>setQty(Math.max(1,qty-1))}>−</button><b>{qty}</b><button onClick={()=>setQty(qty+1)}>+</button></div>
-    <button className="add" onClick={add}>Agregar al carrito <i>|</i> {money(detailTotal*qty)}</button>
-   </section>
-  </div>}
+  <header className="topbar"><button className="logoBtn" onClick={()=>setScreen('home')}><img src="/branding/martie-logo.png" alt="Martie"/></button><div className="topActions"><button className="iconBtn" onClick={()=>setScreen('search')}>⌕</button><button className="clubTop" onClick={()=>setScreen('club')}>✦ Martie Club</button></div></header>
+  {screen==='home'&&<Home products={products} menu={goMenu} open={open}/>} 
+  {screen==='menu'&&<Menu cat={cat} setCat={setCat} shown={shown} open={open} categories={categories} loading={loading} />}
+  {screen==='search'&&<Search products={products} open={open} back={()=>setScreen('home')}/>} 
+  {screen==='club'&&<Club auth={auth} club={club} setScreen={setScreen}/>} 
+  {screen==='profile'&&<Profile auth={auth} logout={logout} orders={orders} club={club} setScreen={setScreen}/>} 
+  {screen==='orders'&&<Orders orders={orders} setScreen={setScreen}/>} 
+  {screen==='tracking'&&<Tracking order={orders.find(o=>o.id===checkout.trackId)||orders[0]} />}
+  {screen==='checkout'&&<Checkout checkout={checkout} update={updateCheckout} cart={cart} total={cartTotal} slots={availableSlots} today={today} submit={submitOrder} error={authMsg} setScreen={setScreen} />}
+  {screen==='confirmation'&&<Confirmation order={orders[0]} whatsapp={whatsapp} setScreen={setScreen}/>} 
+  {screen==='admin'&&<Admin products={products} setProducts={setProducts} orders={orders} adminTab={adminTab} setAdminTab={setAdminTab}/>} 
+  {cartCount>0&&screen!=='checkout'&&screen!=='confirmation'&&<button className="cartBar" onClick={()=>setScreen('orders')}><span>🛒</span><b>{cartCount}</b><strong>Ver carrito · {money(cartTotal)}</strong></button>}
+  <nav className="bottom"><Nav label="Inicio" icon="⌂" active={screen==='home'} onClick={()=>setScreen('home')}/><Nav label="Menú" icon="☕" active={screen==='menu'} onClick={()=>goMenu('Todos')}/><Nav label="Pedidos" icon="▣" active={['orders','tracking'].includes(screen)} onClick={()=>setScreen('orders')}/><Nav label="Perfil" icon="○" active={['profile','club'].includes(screen)} onClick={()=>setScreen(auth?'profile':'club')}/></nav>
+  {product&&<ProductModal product={product} opts={opts} selected={selected} setSelected={setSelected} qty={qty} setQty={setQty} total={currentUnit} add={add} close={()=>{setProduct(null);setEditing(null)}}/>}
  </div>
 }
-function Home({menu,open,products}){return <main>
- <section className="hero">
-  <div className="heroText"><span className="kicker">BUENOS DÍAS, BUENOS MOMENTOS</span><h1>Tu café,<br/><em>a tu manera.</em></h1><p>Un espacio para bajar el ritmo, pedir algo rico y disfrutar el momento.</p><button className="dark" onClick={()=>menu("Todos")}>Ver menú <b>→</b></button></div>
-  <div className="heroArt"><div className="blob"></div><img className="heroPhoto" src="/images/hero-latte.jpg" alt="Latte Martie"/><img className="character" src="/branding/martie-character.png" alt=""/><span className="scribble">mmm...</span></div><span className="heroHeart">♡</span>
- </section>
- <section className="section"><div className="heading"><div><span className="kicker">PARA HOY</span><h2>Lo que se antoja</h2></div><button onClick={()=>menu("Todos")}>Ver todo →</button></div><div className="chips">{["Café","Bebidas frías","Comida","Postres"].map(x=><button key={x} onClick={()=>menu(x)}>{x==="Bebidas frías"?"Bebidas":x}</button>)}</div><div className="miniGrid">{products.slice(0,3).map(p=><Mini key={p.id} p={p} open={open}/>)}</div></section>
- <section className="moment section"><div><span className="kicker">MOMENTOS MARTIE</span><h2>Pequeños<br/><em>momentos,</em><br/>grandes días.</h2></div><img src="/branding/martie-character.png" alt=""/></section>
- <section className="club section"><div><span className="kicker">MARTIE CLUB</span><h2>Más café,<br/>más momentos.</h2><button className="soft" onClick={()=>document.querySelector(".clubTop")?.click()}>Conocer beneficios →</button></div><img src="/branding/martie-character.png" alt=""/></section>
- <footer><img src="/branding/martie-logo.png" alt="Martie"/><p>Momentos que saben mejor ♡</p></footer>
- </main>}
-function Menu({cat,setCat,shown,open,categories,loading,source}){return <main className="section page"><span className="kicker">MARTIE</span><h1>Nuestro menú</h1><p className="sub">Café, bebidas y más para cada momento.</p><div className="chips">{categories.map(c=><button className={cat===c?"active":""} key={c} onClick={()=>setCat(c)}>{c}</button>)}</div>{loading&&<div className="menuLoading">Cargando menú…</div>}<div className="grid">{shown.map(p=><Mini key={p.id} p={p} open={open} large/>)}</div>{!loading&&!shown.length&&<div className="menuLoading">No hay productos disponibles en esta categoría.</div>}<div className="inlineClub"><div><h2>Martie Club</h2><p>Más café, más momentos.</p><button className="soft">Conocer beneficios →</button></div><img src="/branding/martie-character.png" alt=""/></div></main>}
-function Club(){return <main className="section profile"><img className="profileLogo" src="/branding/martie-logo.png" alt="Martie"/><div className="promo pink"><h1>Martie Club</h1><p>Más café, más momentos.</p><button className="soft">Conocer beneficios →</button></div><div className="promo green"><h2>Pequeños<br/><em>momentos,</em><br/>grandes días.</h2><img src="/branding/martie-character.png" alt=""/></div><div className="list">{[["♧","Recompensas","Acumula puntos y gana bebidas."],["☆","Promociones","Acceso a ofertas especiales."],["♡","Tus favoritos","Guarda lo que más te gusta."],["☕","Historial de pedidos","Revive tus momentos Martie."]].map(x=><button key={x[1]}><span>{x[0]}</span><div><b>{x[1]}</b><small>{x[2]}</small></div><strong>›</strong></button>)}</div><div className="profilePhoto"><img src="/images/club-latte.jpg" alt=""/><span>Momentos que<br/><em>saben mejor</em> ♡</span></div></main>}
-function Orders({cart,total,setCart}){
- const update=(id,delta)=>setCart(c=>c.map(x=>x.id===id?{...x,qty:Math.max(1,x.qty+delta)}:x));
- const remove=id=>setCart(c=>c.filter(x=>x.id!==id));
- return <main className="section cartPage">
-   <div className="cartHead"><button onClick={()=>window.history.length>1?window.history.back():null}>←</button><div><span className="kicker">MARTIE</span><h1>Tu carrito</h1></div></div>
-   {!cart.length?<div className="empty cartEmpty"><div>🛒</div><h2>Tu carrito está vacío.</h2><p>Agrega algo rico para continuar.</p><button className="dark" onClick={()=>location.reload()}>Ver menú →</button></div>:
-   <>
-    <div className="cartItems">{cart.map(item=><article className="cartItem" key={item.id}>
-      <img src={item.img} alt=""/>
-      <div className="cartInfo"><b>{item.name}</b><small>{item.detail}</small><strong>{money(item.price)} c/u</strong>
-       <div className="cartActions"><div className="qty miniQty"><button onClick={()=>update(item.id,-1)}>−</button><b>{item.qty}</b><button onClick={()=>update(item.id,1)}>+</button></div><button className="remove" onClick={()=>remove(item.id)}>Eliminar</button></div>
-      </div>
-      <strong className="lineTotal">{money(item.price*item.qty)}</strong>
-    </article>)}</div>
-    <div className="summary"><div><span>Subtotal</span><b>{money(total)}</b></div><div><span>Envío</span><b>Se calcula al elegir entrega</b></div><div className="grand"><span>Total</span><strong>{money(total)}</strong></div></div>
-    <button className="checkoutBtn" onClick={()=>alert("Siguiente paso: datos del cliente")}>Continuar pedido <span>→</span></button>
-   </>}
- </main>
-}
-function Options({title,values,selected,set,deltas={}}){return <div className="option"><h4>{title}</h4><div>{values.map(v=><button className={selected===v?"selected":""} key={v} onClick={()=>set(v)}>{v}{deltas[v]?` + ${money(deltas[v])}`:""}</button>)}</div></div>}
-function Nav({label,icon,active,onClick}){return <button className={active?"nav active":"nav"} onClick={onClick}><span>{icon}</span><small>{label}</small></button>}
+
+function Home({menu,open,products}){return <main><section className="hero"><div className="heroText"><span className="kicker">BUENOS DÍAS, BUENOS MOMENTOS</span><h1>Tu café,<br/><em>a tu manera.</em></h1><p>Un espacio para bajar el ritmo, pedir algo rico y disfrutar el momento.</p><button className="dark" onClick={()=>menu('Todos')}>Ver menú <b>→</b></button></div><div className="heroArt"><div className="blob"/><img className="heroPhoto" src="/images/hero-latte.jpg" alt="Latte Martie"/><img className="character" src="/branding/martie-character.png" alt=""/><span className="scribble">mmm...</span></div><span className="heroHeart">♡</span></section><section className="section"><div className="heading"><div><span className="kicker">PARA HOY</span><h2>Lo que se antoja</h2></div><button onClick={()=>menu('Todos')}>Ver todo →</button></div><div className="chips">{['Café','Bebidas frías','Comida','Postres'].map(x=><button key={x} onClick={()=>menu(x)}>{x==='Bebidas frías'?'Bebidas':x}</button>)}</div><div className="miniGrid">{products.slice(0,3).map(p=><Mini key={p.id} p={p} open={open}/>)}</div></section><section className="moment section"><div><span className="kicker">MOMENTOS MARTIE</span><h2>Pequeños<br/><em>momentos,</em><br/>grandes días.</h2></div><img src="/branding/martie-character.png" alt=""/></section><section className="club section"><div><span className="kicker">MARTIE CLUB</span><h2>Más café,<br/>más momentos.</h2><button className="soft" onClick={()=>document.querySelector('.clubTop')?.click()}>Conocer beneficios →</button></div><img src="/branding/martie-character.png" alt=""/></section><footer><img src="/branding/martie-logo.png" alt="Martie"/><p>Momentos que saben mejor ♡</p></footer></main>}
+function Menu({cat,setCat,shown,open,categories,loading}){return <main className="section page"><span className="kicker">MARTIE</span><h1>Nuestro menú</h1><p className="sub">Café, bebidas y más para cada momento.</p><div className="chips">{categories.map(c=><button className={cat===c?'active':''} key={c} onClick={()=>setCat(c)}>{c}</button>)}</div>{loading&&<div className="menuLoading">Cargando menú…</div>}<div className="grid">{shown.map(p=><Mini key={p.id} p={p} open={open} large/>)}</div>{!loading&&!shown.length&&<div className="menuLoading">No hay productos disponibles.</div>}<div className="inlineClub"><div><h2>Martie Club</h2><p>Acumula puntos en cada compra.</p></div><span className="clubPoints">10 pts / $100</span></div></main>}
+function Search({products,open,back}){const [q,setQ]=useState('');const r=products.filter(p=>p.name.toLowerCase().includes(q.toLowerCase()));return <main className="section page"><button className="backBtn" onClick={back}>←</button><h1>Buscar</h1><input className="searchInput" autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="¿Qué se te antoja?"/><div className="grid searchGrid">{r.map(p=><Mini key={p.id} p={p} open={open} large/>)}</div></main>}
+function Club({auth,club,setScreen}){return <main className="section profile"><div className="promo pink"><span className="kicker">MARTIE CLUB</span><h1>Más café,<br/>más momentos.</h1><p>Acumula puntos, recibe recompensas y celebra tu cumpleaños con Martie.</p>{auth?<div className="pointsBig"><strong>{club.points}</strong><span>puntos disponibles</span></div>:<button className="dark" onClick={()=>setScreen('profile')}>Crear mi cuenta →</button>}</div><div className="clubRules"><Rule icon="✦" title="Puntos" text="$100 MXN = 10 puntos"/><Rule icon="🎁" title="Recompensas" text="Canjea tus puntos por bebidas y productos."/><Rule icon="🎂" title="Cumpleaños" text="Una bebida gratis con 3 meses de membresía."/><Rule icon="↻" title="Ciclo anual" text="Tus puntos se renuevan un año después de tu registro."/></div></main>}
+function Rule({icon,title,text}){return <div className="rule"><span>{icon}</span><div><b>{title}</b><small>{text}</small></div><strong>›</strong></div>}
+function Profile({auth,logout,orders,club,setScreen}){if(!auth)return <Auth setScreen={setScreen}/>;return <main className="section profile"><div className="profileWelcome"><img src="/branding/martie-character.png" alt=""/><div><span className="kicker">HOLA</span><h1>{auth.user_metadata?.full_name||auth.email?.split('@')[0]||'Martie lover'}</h1><small>{auth.email}</small></div></div><div className="profileStats"><div><strong>{club.points}</strong><small>puntos</small></div><div><strong>{orders.length}</strong><small>pedidos</small></div></div><div className="list"><button onClick={()=>setScreen('club')}><span>✦</span><div><b>Martie Club</b><small>Recompensas y puntos</small></div><strong>›</strong></button><button onClick={()=>setScreen('orders')}><span>☕</span><div><b>Historial de pedidos</b><small>{orders.length} pedidos</small></div><strong>›</strong></button><button onClick={()=>setScreen('admin')}><span>⚙</span><div><b>Administración</b><small>Vista de gestión</small></div><strong>›</strong></button><button onClick={logout}><span>↪</span><div><b>Cerrar sesión</b><small>Salir de tu cuenta</small></div><strong>›</strong></button></div></main>}
+function Auth({setScreen}){const [mode,setMode]=useState('login'),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[name,setName]=useState(''),[msg,setMsg]=useState('');const submit=async()=>{if(!email||!password||(mode==='signup'&&!name))return setMsg('Completa los campos.');if(!supabaseReady){localStorage.setItem('martie_demo_auth',JSON.stringify({email,user_metadata:{full_name:name||'Cliente Martie'}}));location.reload();return}const fn=mode==='login'?supabase.auth.signInWithPassword({email,password}):supabase.auth.signUp({email,password,options:{data:{full_name:name}}});const {error}=await fn;if(error)setMsg(error.message);else setScreen('profile')};return <main className="section auth"><img src="/branding/martie-logo.png" alt="Martie"/><span className="kicker">MARTIE CLUB</span><h1>{mode==='login'?'Bienvenido de vuelta.':'Crea tu cuenta.'}</h1><p>Compra como invitado o guarda tus momentos Martie.</p>{mode==='signup'&&<input placeholder="Nombre" value={name} onChange={e=>setName(e.target.value)}/>}<input type="email" placeholder="Correo electrónico" value={email} onChange={e=>setEmail(e.target.value)}/><input type="password" placeholder="Contraseña" value={password} onChange={e=>setPassword(e.target.value)}/>{msg&&<div className="formError">{msg}</div>}<button className="dark full" onClick={submit}>{mode==='login'?'Iniciar sesión':'Crear cuenta'} →</button><button className="linkBtn" onClick={()=>setMode(mode==='login'?'signup':'login')}>{mode==='login'?'¿No tienes cuenta? Crear una':'Ya tengo cuenta'}</button><button className="linkBtn" onClick={()=>setScreen('home')}>Continuar como invitado</button></main>}
+function Orders({orders,setScreen}){return <main className="section page"><span className="kicker">MIS PEDIDOS</span><h1>Mis pedidos</h1>{!orders.length?<div className="emptySmall"><div>☕</div><h2>Aún no hay pedidos.</h2><p>Cuando hagas tu primer pedido aparecerá aquí.</p><button className="dark" onClick={()=>setScreen('menu')}>Ver menú →</button></div>:<div className="orderList">{orders.map(o=><article className="orderCard" key={o.id}><div className="orderTop"><div><span className="orderId">{o.id}</span><h3>{o.customer?.delivery==='delivery'?'Envío':'Recoger en Martie'}</h3></div><b>{money(o.total)}</b></div><p>{o.items.reduce((a,x)=>a+x.qty,0)} productos · {new Date(o.createdAt).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})}</p><div className="statusPill">{labelStatus(o.status,o.paymentStatus)}</div><button className="outlineBtn" onClick={()=>{setScreen('tracking');window.__martieOrder=o}}>Ver seguimiento →</button></article>)}</div>}</main>}
+function labelStatus(s,p){if(p==='WAITING_PROOF')return 'Esperando comprobante';if(s==='PENDING_CONFIRMATION')return 'Pedido recibido';if(s==='CONFIRMED')return 'Confirmado';if(s==='PREPARING')return 'Preparando';if(s==='READY')return 'Listo';if(s==='ON_THE_WAY')return 'En camino';if(s==='DELIVERED')return 'Entregado';return 'Pedido recibido'}
+function Tracking({order}){const o=order||window.__martieOrder;if(!o)return <main className="section emptySmall"><h2>No encontramos el pedido.</h2></main>;const steps=['Pedido recibido','Pago confirmado','Preparando','Listo','En camino','Entregado'];return <main className="section page"><span className="kicker">SEGUIMIENTO</span><h1>{o.id}</h1><p className="sub">{o.customer?.delivery==='delivery'?'Te lo llevamos a tu dirección.':'Tu pedido estará listo para recoger.'}</p><div className="timeline">{steps.map((x,i)=><div className={'timeStep '+(i===0?'done':'')} key={x}><span>{i===0?'✓':i+1}</span><div><b>{x}</b><small>{i===0?'Pedido creado':i===1&&o.paymentStatus==='WAITING_PROOF'?'Pendiente de validar comprobante':'Pendiente'}</small></div></div>)}</div></main>}
+function Checkout({checkout,update,cart,total,slots,today,submit,error,setScreen}){const [step,setStep]=useState(1);const next=()=>setStep(s=>Math.min(4,s+1));const back=()=>step===1?setScreen('orders'):setStep(s=>s-1);const delivery=checkout.delivery==='delivery';return <main className="section checkout"><div className="checkoutHead"><button className="backBtn" onClick={back}>←</button><div><span className="kicker">TU PEDIDO</span><h1>Finalizar pedido</h1></div></div><div className="steps"><span className={step>=1?'on':''}>1</span><i/><span className={step>=2?'on':''}>2</span><i/><span className={step>=3?'on':''}>3</span><i/><span className={step>=4?'on':''}>4</span></div>{step===1&&<div className="formCard"><h2>Tus datos</h2><input placeholder="Nombre completo" value={checkout.name} onChange={e=>update('name',e.target.value)}/><input placeholder="Teléfono / WhatsApp" value={checkout.phone} onChange={e=>update('phone',e.target.value)}/><input type="email" placeholder="Correo electrónico (opcional)" value={checkout.email} onChange={e=>update('email',e.target.value)}/><label className="choice"><input type="radio" checked={checkout.delivery==='pickup'} onChange={()=>update('delivery','pickup')}/><span><b>Recoger en Martie</b><small>Sin costo de envío</small></span></label><label className="choice"><input type="radio" checked={delivery} onChange={()=>{update('delivery','delivery');update('payment','TRANSFER')}}/><span><b>Envío</b><small>La tarifa se calcula por zona</small></span></label>{delivery&&<div className="addressGrid"><input placeholder="Dirección" value={checkout.address} onChange={e=>update('address',e.target.value)}/><input placeholder="Exterior" value={checkout.exterior} onChange={e=>update('exterior',e.target.value)}/><input placeholder="Interior (opcional)" value={checkout.interior} onChange={e=>update('interior',e.target.value)}/><input placeholder="Colonia" value={checkout.neighborhood} onChange={e=>update('neighborhood',e.target.value)}/><input placeholder="Código postal" value={checkout.cp} onChange={e=>update('cp',e.target.value)}/><input placeholder="Referencias" value={checkout.reference} onChange={e=>update('reference',e.target.value)}/></div>}<button className="checkoutBtn" onClick={next}>Continuar →</button></div>}{step===2&&<div className="formCard"><h2>¿Cuándo lo quieres?</h2><label>Fecha<input type="date" min={today} value={checkout.date} onChange={e=>update('date',e.target.value)}/></label><label>Horario<select value={checkout.time} onChange={e=>update('time',e.target.value)}><option value="">Selecciona un horario</option>{slots.map(x=><option key={x}>{x}</option>)}</select></label><p className="hint">Los horarios se calculan con preparación mínima de 40 minutos y bloques de 15 minutos.</p><button className="checkoutBtn" onClick={next}>Continuar →</button></div>}{step===3&&<div className="formCard"><h2>Método de pago</h2>{delivery?<><label className="choice selected"><input type="radio" checked readOnly/><span><b>Transferencia bancaria</b><small>Te mostraremos los datos y enviarás el comprobante por WhatsApp.</small></span></label></>:<><label className="choice"><input type="radio" checked={checkout.payment==='CARD_TERMINAL'} onChange={()=>update('payment','CARD_TERMINAL')}/><span><b>Tarjeta en terminal</b><small>Pagas físicamente al recoger tu pedido.</small></span></label><label className="choice"><input type="radio" checked={checkout.payment==='CASH'} onChange={()=>update('payment','CASH')}/><span><b>Efectivo</b><small>Pagas al recoger tu pedido.</small></span></label><label className="choice"><input type="radio" checked={checkout.payment==='TRANSFER'} onChange={()=>update('payment','TRANSFER')}/><span><b>Transferencia</b><small>Validaremos tu comprobante antes de preparar.</small></span></label></>}<textarea placeholder="Notas para tu pedido (opcional)" value={checkout.notes} onChange={e=>update('notes',e.target.value)}/><button className="checkoutBtn" onClick={next}>Revisar pedido →</button></div>}{step===4&&<div className="formCard"><h2>Confirma tu pedido</h2><div className="review">{cart.map(x=><div key={x.id}><span>{x.qty} × {x.name}<small>{x.detail}</small></span><b>{money(x.qty*x.unitPrice)}</b></div>)}</div><div className="totalRow"><span>Total</span><strong>{money(total)}</strong></div><div className="reviewBox"><b>{checkout.delivery==='delivery'?'Envío':'Recoger en Martie'}</b><span>{checkout.date} · {checkout.time}</span><span>{checkout.name} · {checkout.phone}</span><span>{(checkout.delivery==='delivery'||checkout.payment==='TRANSFER')?'Transferencia bancaria':checkout.payment==='CASH'?'Efectivo':'Tarjeta en terminal'}</span></div>{error&&<div className="formError">{error}</div>}<button className="checkoutBtn" onClick={submit}>Confirmar pedido · {money(total)} →</button></div>}</main>}
+function Confirmation({order,whatsapp,setScreen}){const transfer=order?.paymentStatus==='WAITING_PROOF';return <main className="section confirmation"><div className="confirmIcon">{transfer?'↑':'✓'}</div><span className="kicker">{transfer?'COMPROBANTE REQUERIDO':'PEDIDO RECIBIDO'}</span><h1>{transfer?'Envía tu comprobante.':'¡Listo! Tu pedido está en camino.'}</h1><p className="sub">Pedido <b>{order?.id}</b> · {money(order?.total)}</p>{transfer&&<div className="bankBox"><h3>Datos para transferencia</h3><p><b>Banco:</b> Martie Demo</p><p><b>Cuenta:</b> 0000000000</p><p><b>Concepto:</b> {order?.id}</p><small>Estos datos son provisionales para la demo y se configurarán desde Administración.</small></div>}<a className="waBtn" href={whatsapp} target="_blank" rel="noreferrer">Abrir WhatsApp →</a><button className="outlineBtn wide" onClick={()=>setScreen('tracking')}>Ver seguimiento</button><button className="linkBtn" onClick={()=>setScreen('menu')}>Seguir comprando</button></main>}
+function ProductModal({product,opts,selected,setSelected,qty,setQty,total,add,close}){const choose=(o,v)=>{const names=o.values.map(x=>x[0]);if(o.type==='multi'){const cur=selected[o.id]||[];setSelected({...selected,[o.id]:cur.includes(v)?cur.filter(x=>x!==v):[...cur,v]})}else setSelected({...selected,[o.id]:[v]})};return <div className="overlay" onClick={close}><section className="detail" onClick={e=>e.stopPropagation()}><button className="close" onClick={close}>×</button><img className="detailImg" src={product.img} alt=""/><div className="detailTitle"><div><h2>Personaliza tu {product.name}</h2><p>{product.desc}</p></div><strong>{money(total)}</strong></div>{opts.map(o=><div className="option" key={o.id}><h4>{o.name}{o.required&&<small className="required"> · obligatorio</small>}</h4><div>{o.values.map(v=><button key={v[0]} className={(selected[o.id]||[]).includes(v[0])?'selected':''} onClick={()=>choose(o,v[0])}>{v[0]}{v[1]?` + ${money(v[1])}`:''}</button>)}</div></div>)}<div className="qty"><button onClick={()=>setQty(Math.max(1,qty-1))}>−</button><b>{qty}</b><button onClick={()=>setQty(qty+1)}>+</button></div><button className="add" onClick={add}>Agregar al carrito <i>|</i> {money(total*qty)}</button></section></div>}
+function Admin({products,setProducts,orders,adminTab,setAdminTab}){const [newName,setNewName]=useState('');const [newPrice,setNewPrice]=useState('');const [localOrders,setLocalOrders]=useState(orders);useEffect(()=>setLocalOrders(orders),[orders]);const add=()=>{if(!newName||!newPrice)return;setProducts(x=>[...x,{id:Date.now(),name:newName,desc:'Producto nuevo',price:Number(newPrice),cat:'Café',img:'/images/latte.jpg'}]);setNewName('');setNewPrice('')};const updateOrder=(id,status)=>{setLocalOrders(x=>x.map(o=>o.id===id?{...o,status,paymentStatus:status==='DELIVERED'?'PAID':o.paymentStatus}:o));};return <main className="section admin"><div className="adminHead"><div><span className="kicker">MARTIE</span><h1>Administración</h1></div><span className="adminBadge">DEMO</span></div><div className="adminTabs">{['dashboard','products','orders','settings'].map(x=><button className={adminTab===x?'active':''} onClick={()=>setAdminTab(x)} key={x}>{x==='dashboard'?'Resumen':x==='products'?'Productos':x==='orders'?'Pedidos':'Configuración'}</button>)}</div>{adminTab==='dashboard'&&<div className="adminStats"><Stat n={orders.length} t="Pedidos"/><Stat n={money(orders.reduce((a,x)=>a+x.total,0))} t="Ventas"/><Stat n={products.length} t="Productos"/><Stat n={orders.filter(x=>x.paymentStatus==='WAITING_PROOF').length} t="Comprobantes"/></div>}{adminTab==='products'&&<div className="adminPanel"><h2>Productos</h2><div className="adminForm"><input placeholder="Nombre" value={newName} onChange={e=>setNewName(e.target.value)}/><input placeholder="Precio" type="number" value={newPrice} onChange={e=>setNewPrice(e.target.value)}/><button className="dark" onClick={add}>Agregar</button></div>{products.map(p=><div className="adminRow" key={p.id}><span>{p.name}</span><b>{money(p.price)}</b><button onClick={()=>setProducts(x=>x.map(y=>y.id===p.id?{...y,available:!y.available}:y))}>{p.available===false?'Activar':'Desactivar'}</button></div>)}</div>}{adminTab==='orders'&&<div className="adminPanel"><h2>Pedidos</h2>{orders.map(o=><div className="adminRow" key={o.id}><span><b>{o.id}</b><small>{o.customer?.name}</small></span><b>{money(o.total)}</b><button onClick={()=>updateOrder(o.id,o.status==='PENDING_CONFIRMATION'?'CONFIRMED':o.status==='CONFIRMED'?'PREPARING':o.status==='PREPARING'?'READY':o.status==='READY'?(o.customer?.delivery==='delivery'?'ON_THE_WAY':'DELIVERED'):o.status==='ON_THE_WAY'?'DELIVERED':o.status)}>Siguiente estado</button></div>)}</div>}{adminTab==='settings'&&<div className="adminPanel"><h2>Configuración</h2><div className="settingRow"><span>Horario de apertura</span><b>09:00</b></div><div className="settingRow"><span>Horario de cierre</span><b>19:00</b></div><div className="settingRow"><span>Preparación mínima</span><b>40 min</b></div><div className="settingRow"><span>Intervalo de horarios</span><b>15 min</b></div><div className="settingRow"><span>Pago con tarjeta online</span><b>Desactivado</b></div></div>}</main>}
+function Stat({n,t}){return <div className="stat"><strong>{n}</strong><small>{t}</small></div>}
+function Mini({p,open,large}){return <article className={large?'card large':'mini'} onClick={()=>open(p)}><img src={p.img} alt={p.name}/><div><div><b>{p.name}</b><small>{p.desc}</small></div><strong>{money(p.price)}</strong></div>{large&&<button className="personalizeBtn" onClick={e=>{e.stopPropagation();open(p)}}>Personalizar</button>}</article>}
+function Nav({label,icon,active,onClick}){return <button className={active?'nav active':'nav'} onClick={onClick}><span>{icon}</span><small>{label}</small></button>}
