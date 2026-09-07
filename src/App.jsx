@@ -107,6 +107,8 @@ export default function App(){
  const dynamicOptions=product?(optionMap[product.id]?.length?optionMap[product.id]:fallbackOptions):[];
  const dynamicDelta=dynamicOptions.reduce((sum,o)=>sum+(o.values||[]).filter(v=>extras.includes(v.name)).reduce((x,v)=>x+v.delta,0),0);
  const detailTotal=product?product.price+dynamicDelta:0;
+ const open=p=>{setProduct(p);setExtras([]);setQty(1)};
+ const menu=c=>{setCat(c);setScreen("menu");window.scrollTo({top:0,behavior:"smooth"})};
  const add=()=>{if(!product)return;const detail=extras.length?extras.join(" · "):"Sin personalización adicional";setCart(c=>[...c,{id:Date.now(),name:product.name,price:detailTotal,qty,detail,img:product.img}]);setProduct(null)};
  const toggle=e=>setExtras(x=>x.includes(e)?x.filter(v=>v!==e):[...x,e]);
 
