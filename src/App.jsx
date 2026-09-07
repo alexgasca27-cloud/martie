@@ -186,16 +186,21 @@ function Admin({products,setProducts,orders,adminTab,setAdminTab,onLogout}){
   let isAdmin=!staffError && staff?.role==='admin'&&staff?.is_active!==false;
   if(!isAdmin){const {data:rpcAdmin}=await supabase.rpc('martie_is_admin');isAdmin=rpcAdmin===true;}
   if(!isAdmin){setMsg('Tu cuenta no tiene permisos de administrador.');return}
-  const [{data:o},{data:c},{data:p},{data:s},{data:z}]=await Promise.all([
+  const results=await Promise.allSettled([
    supabase.from('martie_orders').select('*').order('created_at',{ascending:false}),
    supabase.from('martie_categories').select('*').order('sort_order'),
    supabase.from('martie_products').select('*').order('sort_order'),
    supabase.from('martie_settings').select('*').eq('id',true).single(),
    supabase.from('martie_delivery_zones').select('*').order('name')
   ]);
-  setRows(o||[]);setCats(c||[]);setZones(z||[]);
-  setProducts((p||[]).map(x=>({id:x.id,name:x.name,desc:x.description,price:Number(x.base_price),cat:(c||[]).find(y=>y.id===x.category_id)?.name||'Sin categoría',img:x.image_url||'/images/latte.jpg',available:x.is_available,isFeatured:x.is_featured,isNew:x.is_new,isBestseller:x.is_bestseller})));
-  setSettings(s||null);setReady(true);
+  const unwrap=i=>results[i].status==='fulfilled'?results[i].value:{data:null,error:results[i].reason};
+  const ro=unwrap(0),rc=unwrap(1),rp=unwrap(2),rs=unwrap(3),rz=unwrap(4);
+  const errors=[['Pedidos',ro.error],['Categorías',rc.error],['Productos',rp.error],['Configuración',rs.error],['Envíos',rz.error]].filter(([,e])=>e);
+  if(errors.length)setMsg('Error al cargar '+errors.map(([n,e])=>`${n}: ${e.message||e}`).join(' | '));
+  const o=ro.data||[], c=rc.data||[], p=rp.data||[], s=rs.data||null, z=rz.data||[];
+  setRows(o);setCats(c);setZones(z);
+  setProducts(p.map(x=>({id:x.id,name:x.name,desc:x.description,price:Number(x.base_price),cat:c.find(y=>y.id===x.category_id)?.name||'Sin categoría',img:x.image_url||'/images/latte.jpg',available:x.is_available,isFeatured:x.is_featured,isNew:x.is_new,isBestseller:x.is_bestseller})));
+  setSettings(s);setReady(true);
  }
  const beginProduct=p=>{setEditing(p.id);setForm({name:p.name||'',description:p.desc||'',base_price:p.price??'',category_id:cats.find(c=>c.name===p.cat)?.id||'',image_url:p.img||'',sort_order:products.find(x=>x.id===p.id)?.sort_order||0,is_featured:!!p.isFeatured,is_new:!!p.isNew,is_bestseller:!!p.isBestseller});window.scrollTo({top:0,behavior:'smooth'})};
  const clearProduct=()=>{setEditing(null);setForm({name:'',description:'',base_price:'',category_id:cats[0]?.id||'',image_url:'/images/latte.jpg',sort_order:0,is_featured:false,is_new:false,is_bestseller:false})};
