@@ -38,3 +38,7 @@ Cliente -> carrito -> checkout -> `create-order` -> validación server-side -> p
 
 ## 6. Importante
 El terminal de tarjeta es físico; nunca se capturan datos de tarjeta en la web. Envío siempre exige transferencia. Transferencia no se prepara hasta ser aprobada por administración.
+
+
+### WhatsApp de confirmación interna
+La confirmación de cada pedido se envía al número configurado en `martie_settings.whatsapp_number`. El valor inicial es `9993596815` y el administrador puede editarlo desde **Configuración → WhatsApp**. El teléfono del cliente se conserva como dato del pedido y no se usa como destinatario de la notificación interna.

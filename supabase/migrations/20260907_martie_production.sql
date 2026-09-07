@@ -12,7 +12,7 @@ create table if not exists public.martie_settings (
   slot_interval integer not null default 15,
   capacity_per_slot integer not null default 8,
   pickup_address text not null default '',
-  whatsapp_number text not null default '',
+  whatsapp_number text not null default '9993596815',
   bank_name text not null default '',
   bank_account text not null default '',
   bank_clabe text not null default '',

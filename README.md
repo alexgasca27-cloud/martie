@@ -34,5 +34,5 @@ Esta versión deja la aplicación y el backend listos para trabajar juntos:
 Lee `docs/PRODUCTION_SETUP.md` para el procedimiento exacto.
 
 
-### Horarios
-La app consulta `available-slots` para obtener horarios reales y, si la función no está desplegada o falla, muestra un cálculo local de respaldo. El servidor de `create-order` sigue validando el horario antes de crear el pedido.
+### WhatsApp de confirmación interna
+La confirmación de cada pedido se envía al número configurado en `martie_settings.whatsapp_number`. El valor inicial es `9993596815` y el administrador puede editarlo desde **Configuración → WhatsApp**. El teléfono del cliente se conserva como dato del pedido y no se usa como destinatario de la notificación interna.
