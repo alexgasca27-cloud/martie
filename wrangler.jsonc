@@ -1,0 +1,15 @@
+{
+  "name": "martie",
+  "compatibility_date": "2026-09-09",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "martie-db",
+      "database_id": "f4361c1c-8d04-418c-9dce-ec2bc8cfe560"
+    }
+  ]
+}
